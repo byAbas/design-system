@@ -98,8 +98,8 @@ The group names are the canonical ones, so the checks need no configuration.
 - it lists the contrast pairs (decisions, Contrast).
 
 **Build.** For the Terrazzo profile:
-- `terrazzo.config.ts` and `theme.template.css` from `${CLAUDE_PLUGIN_ROOT}/assets/harness/terrazzo-tailwind-v4/`;
-- only role groups are mapped to Tailwind namespaces;
+- `terrazzo.config.ts` and `theme.template.css` from `${CLAUDE_PLUGIN_ROOT}/assets/harness/terrazzo-tailwind-v4/`, with the config's `EXTENSION_KEY` set to the project's `extensionKey`;
+- only role groups are mapped to Tailwind namespaces, and each token has one CSS variable name (profile, Build);
 - the Tailwind default palette is reset.
 
 **Dependencies.** Each one with its version and reason. Adding them needs approval.
