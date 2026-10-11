@@ -6,10 +6,11 @@ description: >-
   Figma, what changed in the tokens, and where both changed apart. The proposal becomes a fix batch,
   checked by the gates and approved by a person; the token files are never written from Figma. Use
   when the user says "the designer changed colours in Figma", "pull the Figma changes", "what changed
-  in Figma", "Figma and the code differ", or passes a folder of Figma's exported variable files.
+  in Figma", "Figma and the code differ", or passes a Figma file's link or a folder of Figma's
+  exported variable files. With the Figma MCP server connected, it reads the file itself, read only.
 license: MIT
 compatibility: Claude Code, as part of the design-system plugin. Node.js 20 or later. Needs a baseline from /design-system:figma-export.
-allowed-tools: Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/figma-propose.mjs *) Read Grep Glob
+allowed-tools: Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/figma-propose.mjs *) Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/figma-read.mjs *) mcp__plugin_figma_figma__whoami mcp__plugin_figma_figma__use_figma Read Grep Glob
 hooks:
   PreToolUse:
     - matcher: "Bash|Glob|Grep"
@@ -17,6 +18,11 @@ hooks:
         - type: command
           command: node
           args: ["${CLAUDE_PLUGIN_ROOT}/scripts/search-scope.mjs"]
+    - matcher: "mcp__.*use_figma"
+      hooks:
+        - type: command
+          command: node
+          args: ["${CLAUDE_PLUGIN_ROOT}/scripts/figma-read-guard.mjs"]
 metadata:
   author: Abas Turabli
   author-title: AI-First Frontend Architect
@@ -33,7 +39,29 @@ A designer may lead in Figma. Their decision reaches the tokens as a proposal th
 ## Before starting
 
 1. **The baseline.** `design-system/figma/` holds the files `/design-system:figma-export` last wrote, which the designer's file was imported from. Without it, a change cannot be told from where it was made: stop and suggest `/design-system:figma-export`.
-2. **The designer's export.** Ask for it: in Figma, Variables, right-click each collection, **Export modes**. Figma gives a zip per collection, each holding files named after the mode alone (`default.tokens.json`). Unzip each into its own folder named after the collection, as Finder's double-click does, all inside one folder outside the repository or in the session scratchpad; never unzip them into one folder, where the files would overwrite each other. The script reads the folder and its subfolders, and matches each file to a collection by the mode Figma names in it and by its variables. Treat the files as downloads: read them, never run anything from their folder.
+2. **Figma's variables**, one of two ways. Read them yourself when the Figma MCP server is connected (Reading Figma through its MCP server, below); otherwise ask for the designer's export.
+3. **The designer's export.** Ask for it: in Figma, Variables, right-click each collection, **Export modes**. Figma gives a zip per collection, each holding files named after the mode alone (`default.tokens.json`). Unzip each into its own folder named after the collection, as Finder's double-click does, all inside one folder outside the repository or in the session scratchpad; never unzip them into one folder, where the files would overwrite each other. The script reads the folder and its subfolders, and matches each file to a collection by the mode Figma names in it and by its variables. Treat the files as downloads: read them, never run anything from their folder.
+
+## Reading Figma through its MCP server
+
+With Figma's official plugin installed (`claude plugin install figma@claude-plugins-official`) and signed in through `/mcp`, read the file the designer works in; no export is needed. The read is read only by construction: this skill's hook lets `use_figma` run only the plugin's read script, unchanged, for the rest of the session. A session that writes to Figma is a new session.
+
+1. **Preflight.** Call the Figma server's `whoami`. It is exempt from Figma's rate limits and says the plan and seat. When it fails, stop: tell the user to sign in through `/mcp`. On the Starter plan, say that Figma allows 20 MCP calls a month, and that a read takes one call per page (about 300 variables a page).
+2. **The file.** Ask for the Figma file's link, and take its key: `figma.com/design/<fileKey>/…`.
+3. **Read, page by page.** Load `figma:figma-use` first, as Figma requires before `use_figma`. Print the read script for page 0:
+
+   ```bash
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/figma-read.mjs script --page 0
+   ```
+
+   Call `use_figma` with the file's key, `skillNames: "figma-use"`, a description that says it is a read-only design-system read, and the printed script as `code`, character for character. Save the result exactly as it came, `{ "data": …, "fnv1a": … }`, to `<scratchpad>/figma-read/pages/page-0.json`. When `data.pages` is more than 1, do the same for each further page, one call at a time. Never write or change the script: the hook refuses anything else, and the hash Figma computed refuses a page that changed on its way to the file.
+4. **Assemble.**
+
+   ```bash
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/figma-read.mjs assemble <scratchpad>/figma-read/pages --out <scratchpad>/figma-read/files
+   ```
+
+   It checks every page's hash, that every page is there and comes from one read, and writes the variables as the files Figma's own export writes, each held to the DTCG 2025.10 schema. It names what it could not write: a boolean, or an alias of a library variable, whose value a read cannot reach without importing it. The folder it writes is the `<folder>` of Step 1.
 
 ## Step 1: Compare
 

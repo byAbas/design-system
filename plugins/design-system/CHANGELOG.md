@@ -7,6 +7,17 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.14.0
+
+Figma, the second way: `/design-system:figma-propose` reads the designer's Figma file itself, through Figma's official MCP server, read only. No export is needed.
+
+- **One fixed read script** (`scripts/figma/read-variables.js`): every local collection, mode and variable, through the Plugin API, in pages under `use_figma`'s 20 kB limit. `get_variable_defs` reads only the selection's default mode, so it is not used.
+- **Read only by construction:** a new hook (`scripts/figma-read-guard.mjs`) lets `use_figma` run only that script, unchanged, and refuses input it cannot read.
+- **Checked on the way back** (`scripts/figma-read.mjs assemble`): the script hashes each page in Figma, and a page that changed, a page missing, pages of two reads or a wrong count are refused. The pages become the files Figma's own export writes, held to the DTCG 2025.10 schema, so the comparison is the same for both ways.
+- **Types:** a Figma `TIMING` variable (seconds, float32) is written as a duration in milliseconds, as Figma's export does; a boolean, an `EASING` variable and a library alias are named, not written.
+- **Proved on Figma Starter** (2026-10-11): cv-screener's file, 118 variables in 8 collections, read in one call. It proposed the same four changes the designer's native export did (a role re-pointed, a palette colour changed, a role added, a role removed), and nothing else.
+- **Preflight:** `whoami`, exempt from Figma's rate limits, says the plan; on Starter, the skill says that Figma allows 20 MCP calls a month.
+
 ## 0.13.0
 
 Figma, the first way: the tokens go to Figma through Figma's own import, and a designer's changes come back as a proposal.
