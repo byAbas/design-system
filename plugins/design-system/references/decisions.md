@@ -146,7 +146,7 @@ Source: https://www.designtokens.org/tr/2025.10/format/ (Typography type)
 
 **How it is checked:** the contract names each component's `backgroundColor`, `textColor` and `typography`, so the pairs a component combines are machine-readable. The rules-contract check computes each pair in each context with the plugin's own colour maths (`tiers/contrast-pairs`):
 - a translucent text colour is composited over the background first, as CSS paints it;
-- large text, from the component's `typography`, is held to 3:1;
+- large text, from the component's `typography`, is held to 3:1, and so is an icon, a key ending in `-icon` (SC 1.4.11);
 - a variant takes the colours it does not state from the component it extends, so a hover background is checked against the text it shows;
 - a translucent background is not measured: what it sits on is not in the contract.
 

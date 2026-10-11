@@ -1,6 +1,8 @@
 ---
 # The design system's rules. Every value lives in the design tokens `imports:` names (W3C Design
-# Tokens), never here. `components:` names, by token id, the roles each component reads.
+# Tokens), never here. `components:` names, by token id, the roles each component reads. Each key
+# starts with its component's file name in kebab-case (Button.tsx → button-*; a route file takes its
+# folder, about/page.tsx → about-page), so every component file that reads roles has a key.
 version: alpha
 name: <Product name>
 description: <One sentence on the product's visual character. The rules and their reasons; the values are the design tokens it imports.>

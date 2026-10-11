@@ -148,13 +148,15 @@ Each rule block has five fields:
 
 - **What:** the component contract names roles only (`{colors.*}`, `{typography.*}`, `{rounded.*}`), never palette entries or values.
 - **Why:** principles 2.
-- **Check (core):** read the contract in the rules document's front matter. Flag palette references, literal values, and missing components that code has.
-- **Gate:** rules-contract check (profile).
+- **Check (core):**
+  - read the contract in the rules document's front matter, and flag palette references and literal values;
+  - flag each component file that reads colour roles and has no key: a key starts with the file's name in kebab-case (`conventions.md`, The contract), pages included. The rules-contract check computes this; without it, compute it the same way.
+- **Gate:** rules-contract check (core).
 - **Default:** `error`.
 
 ### `tiers/contrast-pairs`
 
-- **What:** each pair the contract combines meets WCAG 2.1 AA in every context: a component's `textColor` over its `backgroundColor`, at 4.5:1, or 3:1 when its `typography` is large text (24px, or about 18.67px and bold).
+- **What:** each pair the contract combines meets WCAG 2.1 AA in every context: a component's `textColor` over its `backgroundColor`, at 4.5:1, or 3:1 when its `typography` is large text (24px, or about 18.67px and bold) or its key ends in `-icon` (SC 1.4.11).
 - **Why:** decisions, Contrast. A role is chosen per context, so a pair that passes in light can fail in dark.
 - **Check (core):**
   - for each component in the contract, and each context, compute the ratio with the plugin's colour maths (`scripts/lib/color.mjs`);

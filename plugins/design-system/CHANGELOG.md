@@ -7,6 +7,19 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.10.0
+
+Every component file that reads a role has a contract key, and the check finds the ones that do not.
+
+- **The contract key rule** (`references/conventions.md`, The contract). A key starts with its component's file name in kebab-case: `Button.tsx` → `button-*`, `CtaBannerSection.tsx` → `cta-banner-section-*`. An `index` file takes its folder's name. A route file takes its folder's name and its own (`app/[locale]/layout.tsx` → `locale-layout`, `about/page.tsx` → `about-page`), since every route has the same file name. Pages are components, with no exemption. cv-screener's keys named visual parts (`button-primary-hover`) with nothing tying them to files, so harness could not check coverage. ispanviza-web started every key with its file name, and its next audit named the 15 files with no key, all then added.
+- **Coverage in the rules-contract check.** It lists the component files (`.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro`, without tests and stories) under the code folders, a new `tokens.code` setting (`["src", "app", "components", "pages"]` by default, `[]` turns it off). Each file that names a colour role, in a colour utility (`bg-surface`, `hover:text-on-surface/80`) or a variable (`var(--color-surface)`), and has no key is a `tiers/components-read-roles` finding. Run read-only on ispanviza-web: 42 of its 81 component files read roles, and all 42 have a key, `locale-layout` and the page files included.
+- **An icon is held to 3:1.** A contract key ending in `-icon` is a graphic, measured against SC 1.4.11's 3:1 instead of text's 4.5:1. On ispanviza-web, `contact-form-success-icon` had been measured as text.
+- `setup` writes keys by the rule, the DESIGN.md skeleton states it, and `fix` renames keys that do not follow it as their own batch.
+
+**Upgrading from 0.9.x**
+- Copy `scripts/check-rules-contract.mjs` and `scripts/lib/*.mjs` into `design-system/checks/` again.
+- The first run names each component file that reads roles with no key. Add the keys, or rename keys that named visual parts so they start with their file's name, as a `fix` batch. A project whose components live elsewhere sets `tokens.code`.
+
 ## 0.9.0
 
 Contrast is checked, and a translucent colour follows its base.

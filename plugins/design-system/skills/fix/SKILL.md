@@ -76,6 +76,7 @@ Present the plan and wait for approval. Use plan mode when the session offers it
 **The rules document.** For `docs/rules-document-exists`, or when a rules document is rewritten:
 - **No rules document:** start from `${CLAUDE_PLUGIN_ROOT}/assets/setup/DESIGN.md`, keep its sections and fill them from the project's tokens and components.
 - **Another rules document:** keep it, and bring it to the rules (decisions, The rules document: no values, a machine-readable contract, only existing token ids). Do not add a second document beside it.
+- **Contract keys** start with their component's file name in kebab-case (`${CLAUDE_PLUGIN_ROOT}/references/conventions.md`, The contract). Renaming keys that named visual parts (`button-primary-hover` for `Button.tsx` already fits; `hero-cta` for `CtaBannerSection.tsx` does not) is its own batch, with the rules document's prose.
 
 **Batches that must not change rendering.** A migration, a rename or a move of values should leave every page looking the same. The plan says how that is proven:
 - **Baseline and compare.** Take a baseline with the project's own visual check (its screenshot or visual-regression script) before any change, and compare after it.
