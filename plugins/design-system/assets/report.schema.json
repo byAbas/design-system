@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/DevAbas/design-system/plugins/design-system/assets/report.schema.json",
+  "$id": "https://github.com/byAbas/design-system/plugins/design-system/assets/report.schema.json",
   "title": "design-system audit report",
   "description": "The report /design-system:audit writes. references/report.md explains each field.",
   "type": "object",

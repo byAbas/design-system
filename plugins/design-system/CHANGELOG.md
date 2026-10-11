@@ -1,6 +1,6 @@
 # Changelog
 
-The plugin follows Semantic Versioning. Its version lives in `.claude-plugin/plugin.json` only. From 0.6.0 each release is tagged `v<version>` in `DevAbas/design-system`; 0.1.0 to 0.5.2 were released as `design-tokens` in `DevAbas/skills`, tagged `design-tokens--v<version>`.
+The plugin follows Semantic Versioning. Its version lives in `.claude-plugin/plugin.json` only. From 0.6.0 each release is tagged `v<version>` in `byAbas/design-system`; 0.1.0 to 0.5.2 were released as `design-tokens` in `byAbas/skills`, tagged `design-tokens--v<version>`. The GitHub owner was `DevAbas` until it was renamed `byAbas`; GitHub redirects the old links.
 
 A version bump means:
 - **Major:** a change to the rubric or the report schema that makes a new report incomparable with an older one.
@@ -61,7 +61,7 @@ The harness lives with the rest of the design system, and an installed one can b
 
 ## 0.6.0
 
-The plugin moves to its own repository, `DevAbas/design-system`, and is renamed `design-system`, shown as **Agent-Ready Design System**. The repository will hold more design-system skills; the rubric is still Token Architecture.
+The plugin moves to its own repository, `byAbas/design-system`, and is renamed `design-system`, shown as **Agent-Ready Design System**. The repository will hold more design-system skills; the rubric is still Token Architecture.
 
 - **Ids.** Marketplace `abasturabli`, plugin `design-system`, install id `design-system@abasturabli`. Commands are `/design-system:setup`, `:audit`, `:fix` and `:harness`, and the auditor is `design-system:token-auditor`. The name people see is `displayName`, which can change without breaking an install.
 - **Reports.** `tool.name` is `design-system`. Reports written by design-tokens 0.1–0.5 carry `design-tokens`, and are still read, rendered and compared.
@@ -69,7 +69,7 @@ The plugin moves to its own repository, `DevAbas/design-system`, and is renamed 
 - **Unchanged.** The rubric, its rule ids, the report schema version (1), the canonical layout and every check. The legacy locations of 0.3.x (`design-tokens.gates.json`) and before 0.4.0 (`design-tokens-audit/`) are still read.
 
 **Migrating from design-tokens 0.5.x**
-- Install: `claude plugin marketplace remove fearchitect` (this also uninstalls `design-tokens`), then `claude plugin marketplace add DevAbas/design-system` and `claude plugin install design-system@abasturabli`.
+- Install: `claude plugin marketplace remove fearchitect` (this also uninstalls `design-tokens`), then `claude plugin marketplace add byAbas/design-system` and `claude plugin install design-system@abasturabli`.
 - A project with the harness: rename `.claude/hooks/design-tokens/` to `.claude/hooks/design-system/`, and update that path in `.claude/settings.json`, the git pre-commit hook, the CI workflow and the agent instructions. Copy the checks and hooks again, so they match 0.6.0. A project that uses the plugin's ESLint rules renames `design-tokens/*` to `design-system/*` in its config and in any disable comments.
 - Old reports keep working; there is nothing to convert.
 
