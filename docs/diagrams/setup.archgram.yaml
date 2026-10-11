@@ -1,0 +1,50 @@
+archgram: 1
+diagram: sequence
+title: "/design-system:setup"
+description: >-
+  You run /design-system:setup. It scans the project with the plugin's
+  scan script, and stops with a suggestion to run the audit instead when
+  the project already has token files or a rules document. It reads the
+  plugin's principles, decisions and rubric, asks you only what changes the
+  plan (contexts, seeds, stack, components, fonts), reads the latest
+  documentation of each tool, and presents the plan. Nothing is written
+  before you approve it. Then it writes the token files, the rules document
+  and the build config into the project, generates the palette and computes
+  the derived roles, installs the approved dependencies and runs the build,
+  which writes the generated CSS, and wires the global CSS to it. It proves
+  the result with the plugin's checks and an audit, and hands off to
+  /design-system:harness for the gates.
+participants:
+  - { id: you, kind: users, label: You, variant: external }
+  - { id: setup, kind: agent, label: setup skill, note: plans before writing, source: ../../plugins/design-system/skills/setup/SKILL.md }
+  - { id: scripts, kind: script, label: scripts/, note: "scan and checks", tech: nodedotjs, source: [../../plugins/design-system/scripts/scan.mjs, ../../plugins/design-system/scripts/check-tokens.mjs, ../../plugins/design-system/scripts/check-rules-contract.mjs] }
+  - { id: project, kind: file, label: Your project, note: "tokens, DESIGN.md", source: ../../plugins/design-system/assets/setup }
+  - { id: build, kind: script, label: Build, note: Terrazzo, tech: tailwindcss, source: ../../plugins/design-system/assets/harness/terrazzo-tailwind-v4/terrazzo.config.ts }
+  - { id: audit, kind: agent, label: audit skill, source: ../../plugins/design-system/skills/audit/SKILL.md }
+messages:
+  - phase: Read the project
+  - { from: you, to: setup, label: "/design-system:setup", source: "../../plugins/design-system/skills/setup/SKILL.md#name: setup" }
+  - { from: setup, to: scripts, label: scan, source: "../../plugins/design-system/skills/setup/SKILL.md#scripts/scan.mjs ." }
+  - { reply: scripts, label: inventory }
+  - opt:
+      when: tokens already exist
+      source: "../../plugins/design-system/skills/setup/SKILL.md#If it already has token files or a rules document"
+      messages:
+        - { reply: setup, label: run audit instead, refused: true }
+  - { from: setup, to: setup, label: "rubric, latest docs", async: true, source: ["../../plugins/design-system/skills/setup/SKILL.md#the target the result must meet", "../../plugins/design-system/skills/setup/SKILL.md#read the official documentation of its latest stable version"] }
+  - phase: Plan, and wait for you
+  - { from: setup, to: you, label: what changes the plan?, source: "../../plugins/design-system/skills/setup/SKILL.md#Ask only what is unknown and changes the plan" }
+  - { reply: you, label: "contexts, seeds, stack" }
+  - { from: setup, to: you, label: the plan, source: "../../plugins/design-system/skills/setup/SKILL.md#Present the plan and wait for approval" }
+  - { reply: you, label: approved }
+  - phase: Write and build
+  - { from: setup, to: project, label: "tokens, DESIGN.md, config", async: true, source: ["../../plugins/design-system/skills/setup/SKILL.md#Write the token files, then the rules document, then the build config", "../../plugins/design-system/skills/setup/SKILL.md#Generate the palette with the chosen generator", "../../plugins/design-system/skills/setup/SKILL.md#Compute each derived role's value per context"] }
+  - { from: setup, to: build, label: "install, build", source: "../../plugins/design-system/skills/setup/SKILL.md#Install the approved dependencies" }
+  - { from: build, to: project, label: generated CSS, async: true, source: "../../plugins/design-system/assets/harness/terrazzo-tailwind-v4/terrazzo.config.ts#outDir: process.env.DESIGN_TOKENS_OUT_DIR" }
+  - { reply: build, label: built }
+  - phase: Prove it
+  - { from: setup, to: scripts, label: run the checks, source: "../../plugins/design-system/skills/setup/SKILL.md#run the plugin's checks directly" }
+  - { reply: scripts, label: all pass }
+  - { from: setup, to: audit, label: "/design-system:audit", source: "../../plugins/design-system/skills/setup/SKILL.md#Then run `/design-system:audit`" }
+  - { reply: audit, label: "met, gates missing" }
+  - { reply: setup, label: "next: harness", source: "../../plugins/design-system/skills/setup/SKILL.md#Hand off to `/design-system:harness`" }

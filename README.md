@@ -25,6 +25,10 @@ claude plugin install design-system@abasturabli
 
 Stack, dependencies, the rubric and how each part works: [plugins/design-system](plugins/design-system/README.md). Every change, with its reason: [CHANGELOG](plugins/design-system/CHANGELOG.md).
 
+### How setup runs
+
+![/design-system:setup scans the project and stops if it already has tokens, asks what changes the plan, presents the plan and waits for approval, then writes the tokens, DESIGN.md and build config, builds the CSS, proves it with the plugin's checks and an audit, and hands off to harness.](docs/diagrams/setup.svg)
+
 ## About
 
 Built by [Abas Turabli](https://abasturabli.com). MIT License.
