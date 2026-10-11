@@ -111,7 +111,7 @@ After approval:
 1. Write the token files, then the rules document, then the build config.
 2. Generate the palette with the chosen generator, and record its version and seeds.
 3. Compute each derived role's value per context with the rule, and store it. `${CLAUDE_PLUGIN_ROOT}/scripts/check-tokens.mjs` recomputes them.
-4. Install the approved dependencies and run the build.
+4. Install the approved dependencies with the project's own package manager version (`${CLAUDE_PLUGIN_ROOT}/references/sources.md`, Before an install), and run the build.
 5. Wire the project's global CSS to the generated outputs, following the profile.
 
 ## Step 5: Verify

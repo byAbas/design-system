@@ -69,6 +69,7 @@ export function gatesProblems(config) {
     if (!Array.isArray(c[key]) || c[key].some((item) => typeof item !== "string" || !item.trim())) problems.push(`${key} must be a list of non-empty strings`);
   };
   for (const key of ["generated", "sources", "onSourceEdit", "beforeCommit"]) list(key);
+  if (c.build !== undefined && (typeof c.build !== "string" || !c.build.trim())) problems.push("build must be the command that rewrites the generated outputs");
   if (c.lint !== undefined) {
     if (!Array.isArray(c.lint?.files) || typeof c.lint?.command !== "string") problems.push("lint needs files (globs) and command (the linter, which receives the edited files as its last arguments)");
     if (c.lint?.strictEnv !== undefined && (typeof c.lint.strictEnv !== "object" || Object.values(c.lint.strictEnv).some((value) => typeof value !== "string"))) problems.push("lint.strictEnv must map variable names to strings");
@@ -117,20 +118,23 @@ export function checkFiles(files, gates, { root = process.cwd(), exists = (file)
   const source = paths.find((file) => matchesAny(file, gates.sources) || matchesAny(file, gates.generated));
   if (source !== undefined) {
     const failure = runCommands(gates.onSourceEdit, {}, root);
-    if (failure) return `After editing ${source}, \`${failure.command}\` failed:\n${failure.output}\nValues live in the token files; rebuild the outputs instead of editing them.`;
+    if (failure) return `After editing ${source}, \`${failure.command}\` failed:\n${failure.output}\nValues live in the token files; rebuild the outputs${gates.build ? ` with \`${gates.build}\`` : ""} instead of editing them.`;
   }
   return undefined;
 }
 
 /**
- * Why a file must not be edited by hand, for the first of `files` in `generated`; undefined when none is.
+ * Why a file must not be edited by hand, for the first of `files` in `generated`; undefined when none is. It names
+ * `build`, the command that rewrites the outputs, and no command when the config has none: `onSourceEdit` holds
+ * checks, and a check named as the rebuild sends the agent to run something that rewrites nothing.
  * @param {string[]} files
  * @param {Record<string, any>} gates
  */
 export function generatedReason(files, gates, { root = process.cwd() } = {}) {
   const file = projectPaths(files, root).find((path) => matchesAny(path, gates.generated));
   if (file === undefined) return undefined;
-  return `${file} is generated from the design tokens. Change the token files (or the build's template), then rebuild: ${gates.onSourceEdit?.[0] ?? "the token build"}.`;
+  const rebuild = gates.build ? `rebuild with \`${gates.build}\`` : "rebuild the outputs with the project's token build";
+  return `${file} is generated from the design tokens. Change the token files (or the build's template), then ${rebuild}.`;
 }
 
 /** The environment a stage's commands run in: the design lint rules as errors. */

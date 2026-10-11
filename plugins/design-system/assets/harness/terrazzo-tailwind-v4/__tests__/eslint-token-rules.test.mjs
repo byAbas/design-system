@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { declaredVariables, hasRawColor, judgeClass, parseClass, parseThemeTokens } from "../eslint-token-rules.mjs";
+import { NAMED_COLORS, declaredVariables, hasRawColor, isColorProperty, judgeClass, namedColorAt, namedColorIn, namedColorInDeclarations, parseClass, parseThemeTokens } from "../eslint-token-rules.mjs";
 
 const theme = parseThemeTokens(`
 @theme { --color-*: initial; }
@@ -63,6 +63,49 @@ describe("hasRawColor", () => {
 
   it("ignores ids, entities and colours built from variables", () => {
     for (const text of ["#main", "&#123;", "rgb(\u0000, \u0000, \u0000)", "var(--color-surface)"]) assert.ok(!hasRawColor(text), text);
+  });
+});
+
+describe("named colours", () => {
+  it("knows the 148 CSS Color 4 names, and not the keywords that state no colour", () => {
+    assert.equal(NAMED_COLORS.size, 148);
+    for (const name of ["red", "rebeccapurple", "grey", "lightgoldenrodyellow"]) assert.ok(NAMED_COLORS.has(name), name);
+    for (const keyword of ["transparent", "currentcolor", "inherit", "none"]) assert.ok(!NAMED_COLORS.has(keyword), keyword);
+  });
+
+  it("knows which properties and attributes take a colour, in camel or kebab case", () => {
+    for (const name of ["color", "backgroundColor", "background", "border-top", "borderInlineStartColor", "boxShadow", "fill", "stopColor", "WebkitTextFillColor"]) assert.ok(isColorProperty(name), name);
+    for (const name of ["fontFamily", "variant", "colorScheme", "className", "tone"]) assert.ok(!isColorProperty(name), name);
+  });
+
+  it("finds a named colour in a value, but not in a URL or quoted text", () => {
+    assert.equal(namedColorIn("1px solid Red"), "red");
+    assert.equal(namedColorIn("linear-gradient(to right, white, var(--x))"), "white");
+    assert.equal(namedColorIn("url(/img/red/bg.png) no-repeat"), undefined);
+    assert.equal(namedColorIn("transparent"), undefined);
+  });
+
+  it("finds a declaration that gives a colour property a name, and leaves prose and classes alone", () => {
+    assert.equal(namedColorInDeclarations("display: flex; color: rebeccapurple;"), "rebeccapurple");
+    assert.equal(namedColorInDeclarations("a:hover { border: 1px solid navy }"), "navy");
+    for (const text of ["The red team won", "variant: red", "hover:text-red-500 md:bg-surface", "color: var(--color-on-surface)"]) assert.equal(namedColorInDeclarations(text), undefined, text);
+  });
+
+  it("reads a string by where it stands: a colour property, an element's colour attribute, or a declaration", () => {
+    const literal = (value, parent) => {
+      const node = { type: "Literal", value, parent };
+      if (parent?.type === "Property") parent.value = node;
+      return node;
+    };
+    const property = (key, computed = false) => ({ type: "Property", key: { type: "Identifier", name: key }, computed });
+    const attribute = (name, element) => ({ type: "JSXAttribute", name: { name }, parent: { name: { type: "JSXIdentifier", name: element } } });
+    assert.equal(namedColorAt(literal("red", property("backgroundColor")), "red"), "red");
+    assert.equal(namedColorAt(literal("red", property("variant")), "red"), undefined);
+    assert.equal(namedColorAt(literal("red", property("color", true)), "red"), undefined);
+    assert.equal(namedColorAt(literal("white", attribute("fill", "path")), "white"), "white");
+    assert.equal(namedColorAt(literal("red", attribute("color", "Badge")), "red"), undefined);
+    assert.equal(namedColorAt(literal("color: red", undefined), "color: red"), "red");
+    assert.equal(namedColorAt(literal("red", undefined), "red"), undefined);
   });
 });
 

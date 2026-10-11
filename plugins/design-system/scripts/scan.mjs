@@ -8,6 +8,7 @@
 // - the token files, resolvers and build configs;
 // - the rules document and its front matter keys, and other files that may be one;
 // - the styling and token packages, with their installed versions;
+// - the package manager the project declares, and its lock file's format;
 // - where raw colours appear in source;
 // - which generated outputs and gates exist.
 //
@@ -98,6 +99,30 @@ function installedVersion(root, name) {
   }
 }
 
+/**
+ * The format version a lock file records, which names the package manager's major range when package.json declares
+ * none (references/sources.md, Before an install): npm's `lockfileVersion`, pnpm's `lockfileVersion`, `yarn-v1` for a
+ * classic yarn.lock, or yarn Berry's `__metadata.version`. Null for a lock file without one (bun) or an unreadable one.
+ * @param {string} lockfile
+ * @param {string} text
+ */
+export function lockfileVersionOf(lockfile, text) {
+  if (lockfile === "package-lock.json") {
+    try {
+      const version = JSON.parse(text).lockfileVersion;
+      return version === undefined ? null : String(version);
+    } catch {
+      return null;
+    }
+  }
+  if (lockfile === "pnpm-lock.yaml") return /^lockfileVersion:\s*['"]?([\d.]+)/m.exec(text)?.[1] ?? null;
+  if (lockfile === "yarn.lock") {
+    if (/^# yarn lockfile v1\b/m.test(text)) return "yarn-v1";
+    return /^__metadata:\s*\n\s+version:\s*(\d+)/m.exec(text)?.[1] ?? null;
+  }
+  return null;
+}
+
 const readText = (root, file) => {
   try {
     return readFileSync(join(root, file), "utf8");
@@ -182,7 +207,16 @@ export function scanProject(root) {
 
   return {
     root,
-    packageJson: pkg ? { name: pkg.name ?? null, scripts: Object.keys(pkg.scripts ?? {}), lockfile } : null,
+    packageJson: pkg
+      ? {
+          name: pkg.name ?? null,
+          scripts: Object.keys(pkg.scripts ?? {}),
+          lockfile,
+          // The version the project runs its installs with (`pnpm@10.18.0`), when it pins one; null otherwise.
+          packageManager: typeof pkg.packageManager === "string" ? pkg.packageManager : null,
+          lockfileVersion: lockfile ? lockfileVersionOf(lockfile, readText(root, lockfile)) : null,
+        }
+      : null,
     dependencies,
     profile: terrazzo && tailwindMajor === "4" ? "terrazzo-tailwind-v4" : null,
     tokens: { dtcgFiles: tokenFiles, resolvers, otherTokenJson, configs },

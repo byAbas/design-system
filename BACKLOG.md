@@ -4,7 +4,6 @@ What the plugin should do next, and why. Each item names the project run that sh
 
 ## Audit
 
-- **Fix order is part of the report.** Removing Tailwind's default palette (`--color-*: initial`) makes classes such as `bg-blue-50` or `from-black/60` stop compiling without failing the build, so the interface loses styles silently. The reset is safe only after every default-palette class in the code is replaced. The report lists findings but no order, and the agent's suggested first batch was the reset. The report should state the dependencies between findings, and `fix` should refuse a batch whose prerequisites are still open. (ispanviza-web)
 - **Versions table: say when the latest cannot be installed.** It listed ESLint 10.11.0 as latest, but `eslint-config-next` 16 depends on `eslint-plugin-react`, `-import` and `-jsx-a11y`, whose peer ranges stop at ESLint 9. Read the peer ranges of the installed dependents and mark a latest version as blocked, naming the blocker. (ispanviza-web, cv-screener)
 - **"Runs in" needs one meaning.** `gate/theme-palette-reset` says "Runs in: ci", but it is a state of the theme file, enforced by the build. Define the column (where a check runs) and use a separate kind for configuration states.
 - **Exemptions have a home.** Flag icons, a logo SVG, email HTML and a CRM setup script hold literal colours that are artwork or non-UI output. The auditor left them out and asked, which was right, but there is nowhere to record the decision, so the next audit asks again. Record exemptions in `design-system/gates.json` (paths and reason), read by the audit and the code lint. (ispanviza-web)
@@ -22,17 +21,13 @@ What the plugin should do next, and why. Each item names the project run that sh
 
 ## Fix
 
-- **Every commit leaves the tree working.** A token migration and the code renames it needs belong in one commit; a commit with only the token change breaks rendering. The plan should group commits by that rule, not by finding. (ispanviza-web: the agent merged two planned commits for this reason)
 - **Visual verification for migrations.** The ispanviza-web batch captured computed styles (colour, background, border, shadow, font size, line height, weight, max-width) of every element on every route at two widths, plus screenshots and interaction states, before and after, and stopped on any difference. Make this the default proof for a batch that must not change rendering, run from the session scratchpad, never added to the project. Diff the pre-rendered HTML too: on ispanviza-web every screenshot was identical while two routes lost a CTA link from the server HTML (the browser added it back), which only the HTML diff showed. And check the base build on its own: a comparison of two builds cannot see a fault both share.
 - **Confirm a fresh build before comparing reports.**
 
 ## Harness
 
-- **The generated-file message names the wrong command.** It tells the agent to rebuild with `onSourceEdit[0]`, which in cv-screener is `design:export -- --check`, a check that does not rebuild. abasturabli.com had to adapt the same line. Add an explicit build command to `gates.json` (for example `build`), or name no command. (cv-screener, abasturabli.com)
 - **Prove CI in a clean checkout.** The gates passed locally because `.next/types` existed; CI's fresh checkout had none, and `tsc` failed on `LayoutProps`. Before calling CI proven, run the commit gate in a fresh `git clone` with no build artifacts. (cv-screener)
-- **Check the package manager's version before an install.** The machine had pnpm 12; the project was written for pnpm 10 (`ignoredBuiltDependencies`, lockfile v9). pnpm 12 wrote unfilled `allowBuilds` placeholders into `pnpm-workspace.yaml`. Read `packageManager`, or infer the version from the lockfile and settings, and run that version (Corepack, or `npx pnpm@<major>`). Propose pinning `packageManager` when it is missing. (ispanviza-web)
 - **CSS lint by default:** extend the project's existing linter (`@eslint/css` with ESLint; Stylelint where the project already uses it; else Stylelint), with the same colour functions as `hasRawColor`. (cv-screener)
-- **Named colours:** `red` or `rebeccapurple` pass `no-raw-color` and the CSS rule. Use the CSS Color 4 named-colour list. (cv-screener)
 - **Contract coverage: keys start with the component's file name.** The rubric asks that every component has a contract entry, but cv-screener's keys named visual parts (`button-primary-hover`) and nothing mapped component files to them, so harness could not check coverage. ispanviza-web started every key with its component's file name in kebab-case (`Button.tsx` → `button-*`, `CtaBannerSection.tsx` → `cta-banner-section-*`), and the next audit computed coverage mechanically: it named the 15 files that read roles with no key, and all were then added, page files included. Make this the convention in `references/conventions.md`, the setup skeleton and the rules-contract check, with no exemption for pages. (cv-screener, ispanviza-web)
 
 ## Profile: terrazzo-tailwind-v4 (Terrazzo 2.7.1)

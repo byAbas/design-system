@@ -77,6 +77,7 @@ Write `design-system/gates.json`, starting from `${CLAUDE_PLUGIN_ROOT}/assets/ha
 - `generated`: globs of the outputs an agent may never edit;
 - `sources`: globs of the files whose edit runs `onSourceEdit` (tokens, rules document, build template and config);
 - `onSourceEdit`: commands run after such an edit;
+- `build`: the one command that rewrites the generated outputs (for example `npm run -s tokens:build`). The message that stops an edit to an output names it. It is never a check: a `--check` command rewrites nothing, and an agent told to rebuild with it runs it and edits the output again. Without a build command, leave it out, and the message names none;
 - `lint`: `files` and `command`, for the linter an edited file gets, and `strictEnv`, the variables that make its rules errors;
 - `beforeCommit`: the commands every commit and CI run;
 - `tokens` (the checks): `resolver`, `modifier`, `palette`, `roles`, `typography`, `fonts`, `extensionKey`, `outDir`, `rulesDocument` and `readable`. Write every one that differs from the canonical layout, for example the `stack.tokenSettings` the audit recorded. A check that finds an empty roles group fails and names the groups the tokens have. `files` lists plain token files for a project without a resolver. Defaults are in `${CLAUDE_PLUGIN_ROOT}/scripts/lib/project-modules.mjs`.
@@ -107,7 +108,7 @@ Every path and command in it is the project's own. None is copied from the examp
 - **Read the file first**, and keep its comments, which say what each rule does and why.
 - **Change only what the project needs:** names, paths, the class helpers the code uses, the utilities it has. Settings belong in `design-system/gates.json`, not in the copied code.
 - **Test what you change.** Write a unit test for each pure function you change, in the project's test framework, with a negative case: the input the rule must reject.
-- **Ask before dependencies.** Only `check-rules-contract.mjs` (`yaml`) and the profile's build and lint (Terrazzo, ESLint) need packages. Ask before adding any.
+- **Ask before dependencies.** Only `check-rules-contract.mjs` (`yaml`) and the profile's build and lint (Terrazzo, ESLint) need packages. Ask before adding any, and install them with the project's own package manager version (`${CLAUDE_PLUGIN_ROOT}/references/sources.md`, Before an install).
 
 Wire the checks into the project's scripts, for example a `tokens:check` script, and into `beforeCommit` and `onSourceEdit`. Add the ESLint rules to the project's flat config in two severities:
 - `recommended` (warn) for a person;
@@ -131,7 +132,7 @@ The core is agent-agnostic and every agent's adapters only translate (`${CLAUDE_
    - **Branch:** the project's default branch, read from git (`git symbolic-ref refs/remotes/origin/HEAD`), never assumed `main`.
    - **Actions:** pin each to the full commit SHA of its latest release, the version in the comment. Find the release with `git ls-remote --tags --refs https://github.com/<owner>/<action>.git`, the highest `vX.Y.Z`; resolve it with `git ls-remote https://github.com/<owner>/<action>.git refs/tags/vX.Y.Z refs/tags/vX.Y.Z^{}`, taking the `^{}` commit when there is one. Never copy a SHA or a tag from this plugin.
    - **Node:** `node-version-file` with the project's `.nvmrc` or `.node-version`, else `node-version` from `engines.node`; with none of these, ask.
-   - **Package manager**, from the lock file: npm `npm ci`, pnpm `pnpm install --frozen-lockfile` (with `pnpm/action-setup` before `setup-node`, pinned the same way), yarn `yarn install --immutable`; `cache` names the same manager.
+   - **Package manager**, from the lock file: npm `npm ci`, pnpm `pnpm install --frozen-lockfile` (with `pnpm/action-setup` before `setup-node`, pinned the same way), yarn `yarn install --immutable`; `cache` names the same manager. CI runs the project's version of it (`${CLAUDE_PLUGIN_ROOT}/references/sources.md`, Before an install): `pnpm/action-setup` reads `packageManager` when it is set, and otherwise needs its `version` input set to the project's major.
    - Keep `permissions: contents: read`, `concurrency` and `timeout-minutes`; never use `pull_request_target`.
    - **Dependabot:** offer `core/dependabot.yml` for `.github/`, so the pinned SHAs stay current; it is a new file, so ask first, and merge into an existing `dependabot.yml`.
    - **Lint:** run `actionlint` on the workflow when it is installed; when it is not, say so instead of installing it.
@@ -148,7 +149,7 @@ When the scan's `gates.harnessLayout` is `legacy-0.7`, `legacy-0.6` or `legacy-0
 | `legacy-0.6` | `.claude/hooks/design-system/` → `design-system/harness/` | stay in `.claude/hooks/design-system/` | `.claude/hooks/design-system/` → `design-system/harness/` |
 | `legacy-0.5` | `.claude/hooks/design-tokens/` → `design-system/harness/` | `.claude/hooks/design-tokens/` → `.claude/hooks/design-system/` | `.claude/hooks/design-tokens/` → `design-system/harness/` |
 
-1. **Compare before replacing.** Diff each installed file against the plugin's current version. Lines the project adapted (a message naming its own commands, a path) are listed and shown to the person. An adapted line that makes a decision (a message, a glob, a command) goes into the core or `design-system/gates.json`, never into an adapter.
+1. **Compare before replacing.** Diff each installed file against the plugin's current version. Lines the project adapted (a message naming its own commands, a path) are listed and shown to the person. An adapted line that makes a decision (a message, a glob, a command) goes into the core or `design-system/gates.json`, never into an adapter. A generated-file message adapted to name the project's build command (before 0.8.1 the core named `onSourceEdit[0]`) becomes `build` in `design-system/gates.json`, and the core is copied unchanged.
 2. **Move.** `git mv` each file as the table says (`mv` for a file not yet committed), then copy the plugin's current versions over them (and add `hook-io.mjs`), with the adapted lines kept.
 3. **Repoint.** Update the paths in `.claude/settings.json` (show the merged `hooks` object for approval), the pre-commit hook, CI, the checks copied into `design-system/checks/` (copy the plugin's current ones), and the agent instructions and README.
 4. **No old path left.** `git grep -n` for the old folder (`design-system/harness/claude`, `.claude/hooks/design-system/run-gates`, or `design-tokens`) finds nothing outside git history, and `git grep -il claude -- design-system/harness/` finds nothing.

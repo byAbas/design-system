@@ -7,6 +7,20 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.8.1
+
+What the runs on cv-screener, ispanviza-web and abasturabli.com showed going wrong.
+
+- **The generated-file message names the build, or no command.** It named `onSourceEdit[0]` as the rebuild, and in cv-screener that is `design:export -- --check`, a check that rewrites nothing; abasturabli.com had adapted the line by hand. `design-system/gates.json` takes `build`, the command that rewrites the outputs, and the message and the failed-source message name it. Without `build` they name no command.
+- **Fix order is part of the report.** Removing Tailwind's default palette (`--color-*: initial`) makes every default palette class stop producing CSS without failing the build, and on ispanviza-web the suggested first batch was that reset. A finding now lists in `requires` the findings that must be closed before it. `render-report.mjs` refuses a `requires` that names no finding of the report, the finding itself, or a cycle, and renders it. The new `scripts/plan-batch.mjs` refuses a `fix` batch whose prerequisites are neither closed nor in the batch, and prints the rest in order. The field is optional, so the schema stays 1 and older reports are read as before.
+- **Every commit leaves the tree working.** `fix` plans its commits by that rule, not one per finding: a token migration and the code renames it needs are one commit. On ispanviza-web the agent had to merge two planned commits for this reason.
+- **Named colours are raw colours.** `no-raw-color` let `red` and `rebeccapurple` through. It now reports a CSS Color 4 named colour where CSS reads a colour: a colour property of a style object (`{ color: "red" }`), a colour attribute of an HTML or SVG element (`fill="red"`), and a declaration in a string or template (`color: red;`). A word alone, such as a variant named `red`, a `color` prop of a component or prose, is not reported. `transparent` and `currentcolor` stay allowed.
+- **Installs use the project's package manager version.** pnpm 12 on a pnpm 10 project wrote unfilled `allowBuilds` placeholders into `pnpm-workspace.yaml` (ispanviza-web). `references/sources.md`, Before an install: the version comes from `packageManager`, or from the lock file and settings; another major runs as the project's (Corepack, or `npx <manager>@<major>`); a missing `packageManager` is proposed; the install's diff is checked. `setup`, `fix` and `harness` follow it, and CI's `pnpm/action-setup` gets the version. The scan reports `packageJson.packageManager` and `packageJson.lockfileVersion`.
+
+**Upgrading from 0.8.0**
+- A project with the harness copies `assets/harness/core/gates.mjs` to `design-system/harness/` again, and adds `build` to `design-system/gates.json`. A `gates.mjs` adapted to name the project's build in the generated-file message goes back to the plugin's copy, with the command in `build`.
+- A project with the profile's ESLint rules copies `eslint-token-rules.mjs` again, keeping its adapted lines, and runs the lint: a named colour it now reports is a finding to fix, not a reason to weaken the rule.
+
 ## 0.8.0
 
 Nothing under `design-system/` names an agent. The core decides, and each agent's adapters only translate.

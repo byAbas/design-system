@@ -9,7 +9,12 @@
 //   - a modifier on a token (`bg-primary/10`), a new colour made in code;
 //   - a variable from the palette (`bg-(--palette-gray-9)`), since code reads roles.
 // - `design-system/no-raw-color` (tiers/no-literal-in-code): no hex value, and
-//   no colour function with a literal channel, in a string or template literal.
+//   no colour function with a literal channel, in a string or template literal;
+//   and no CSS named colour (`red`, `rebeccapurple`) where CSS reads a colour:
+//   a style object's colour property (`{ color: "red" }`), a colour attribute of
+//   an SVG or HTML element (`fill="red"`), or a declaration in a string
+//   (`color: red;`). A word alone is not a colour: `"red"` as a variant name or
+//   in prose is left alone.
 //
 // Why a lint and not the build: after the palette reset (`--color-*: initial`)
 // an unknown colour class produces no CSS and no error, so the element is
@@ -259,6 +264,70 @@ export function hasRawColor(text) {
   return false;
 }
 
+/**
+ * The CSS Color 4 named colours (https://www.w3.org/TR/css-color-4/#named-colors). `transparent` and
+ * `currentcolor` are keywords that state no colour of their own, so they stay allowed, as in `token-classes`.
+ */
+export const NAMED_COLORS = new Set(
+  ("aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue " +
+    "chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey " +
+    "darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray " +
+    "darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen " +
+    "fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki " +
+    "lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen " +
+    "lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime " +
+    "limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue " +
+    "mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive " +
+    "olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum " +
+    "powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue " +
+    "slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke " +
+    "yellow yellowgreen").split(" "),
+);
+
+/** The CSS properties and SVG presentation attributes whose value is or holds a colour, in kebab case. */
+const COLOR_PROPERTY =
+  /^(?:-webkit-)?(?:color|background(?:-color|-image)?|border(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?(?:-color)?|outline(?:-color)?|(?:box|text)-shadow|text-decoration(?:-color)?|text-emphasis(?:-color)?|caret-color|accent-color|column-rule(?:-color)?|scrollbar-color|fill|stroke|stop-color|flood-color|lighting-color|text-fill-color|text-stroke(?:-color)?|tap-highlight-color)$/;
+
+/** True when a property or attribute name (`backgroundColor`, `border-top`, `stopColor`, `WebkitTextFillColor`) takes a colour. */
+export function isColorProperty(name) {
+  return COLOR_PROPERTY.test(String(name).replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`));
+}
+
+/** The first named colour in a CSS value (`1px solid red`), or undefined. A `url(…)` or quoted text is not read. */
+export function namedColorIn(value) {
+  const words = String(value).replace(/url\([^)]*\)|"[^"]*"|'[^']*'/gi, " ").toLowerCase().split(/[\s,()/]+/);
+  return words.find((word) => NAMED_COLORS.has(word));
+}
+
+/** The first named colour that a declaration in `text` gives a colour property (`color: red;`), or undefined. */
+export function namedColorInDeclarations(text) {
+  for (const [, property, value] of String(text).matchAll(/(?:^|[\s;{])(-?[a-zA-Z][\w-]*)\s*:\s*([^;{}]+)/g)) {
+    const name = isColorProperty(property) ? namedColorIn(value) : undefined;
+    if (name) return name;
+  }
+  return undefined;
+}
+
+/**
+ * The named colour a string node gives CSS, from where it stands: the value of a colour property in an object, a
+ * colour attribute of a lowercase (HTML or SVG) element, or a declaration inside the text. Undefined otherwise.
+ * @param {any} node a string Literal or a TemplateLiteral
+ * @param {string} text its text
+ */
+export function namedColorAt(node, text) {
+  const parent = node.parent;
+  if (parent?.type === "Property" && parent.value === node) {
+    const key = parent.key.type === "Identifier" ? parent.key.name : parent.key.value;
+    if (!parent.computed && isColorProperty(key)) return namedColorIn(text);
+  }
+  if (parent?.type === "JSXAttribute" || (parent?.type === "JSXExpressionContainer" && parent.parent?.type === "JSXAttribute")) {
+    const attribute = parent.type === "JSXAttribute" ? parent : parent.parent;
+    const element = attribute.parent?.name;
+    if (element?.type === "JSXIdentifier" && /^[a-z]/.test(element.name) && isColorProperty(attribute.name?.name)) return namedColorIn(text);
+  }
+  return namedColorInDeclarations(text);
+}
+
 // ---------- collecting class strings ----------
 
 /** The string texts an expression holds: literals, template parts, conditional and logical branches, arrays, object keys and values, nested helper calls. */
@@ -365,18 +434,27 @@ export const noRawColor = {
   meta: {
     type: "problem",
     docs: { description: "No raw colour values in source: every colour traces to a design token" },
-    messages: { rawColor: "A raw colour in source: the tokens do not know it and no other theme can change it. Use a colour role (a `bg-`/`text-` token class, or `var(--color-…)`); a new colour becomes a role in the token files first." },
+    messages: {
+      rawColor: "A raw colour in source: the tokens do not know it and no other theme can change it. Use a colour role (a `bg-`/`text-` token class, or `var(--color-…)`); a new colour becomes a role in the token files first.",
+      namedColor: "`{{name}}` is a CSS named colour: the tokens do not know it and no other theme can change it. Use a colour role (a `bg-`/`text-` token class, or `var(--color-…)`); a new colour becomes a role in the token files first.",
+    },
     schema: [],
   },
   create(context) {
     if (TEST_FILE.test(context.filename)) return {};
     return {
       Literal(node) {
-        if (typeof node.value === "string" && hasRawColor(node.value)) context.report({ node, messageId: "rawColor" });
+        if (typeof node.value !== "string") return;
+        if (hasRawColor(node.value)) return context.report({ node, messageId: "rawColor" });
+        const name = namedColorAt(node, node.value);
+        if (name) context.report({ node, messageId: "namedColor", data: { name } });
       },
       TemplateLiteral(node) {
         // Each `${…}` stands in as a hole, so a channel read from a variable is never a literal digit.
-        if (hasRawColor(node.quasis.map((quasi) => quasi.value.raw).join(HOLE))) context.report({ node, messageId: "rawColor" });
+        const text = node.quasis.map((quasi) => quasi.value.raw).join(HOLE);
+        if (hasRawColor(text)) return context.report({ node, messageId: "rawColor" });
+        const name = namedColorAt(node, text);
+        if (name) context.report({ node, messageId: "namedColor", data: { name } });
       },
     };
   },

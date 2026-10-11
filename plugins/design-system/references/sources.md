@@ -37,6 +37,8 @@ Also check whether a newer version than 2025.10 exists (https://www.designtokens
 | @google/design.md | https://github.com/google-labs-code/design.md | Front matter keys, CLI commands (`lint`, `diff`, `export`, `spec`), the linter's rules, whether `imports:` is supported yet (issue #28), and whether `export --format dtcg` still has the defects below |
 | Style Dictionary | https://styledictionary.com/info/dtcg/ | DTCG support in the installed version, the converter for older tokens |
 | Radix custom palette | https://www.radix-ui.com/colors/custom | The generator a palette may come from; record its version |
+| npm lock file | https://docs.npmjs.com/cli/configuring-npm/package-lock-json | Which npm majors write each `lockfileVersion` |
+| Corepack | https://nodejs.org/api/corepack.html | How `packageManager` selects the version, and that Node.js 25 and later no longer ship it (it is installed on its own) |
 | Radix scale | https://www.radix-ui.com/colors/docs/palette-composition/understanding-the-scale | What each of the 12 steps is for |
 
 ## Migrating from design.md front matter
@@ -64,3 +66,12 @@ For each tool the project uses:
 2. **Latest stable version:** the tool's release page or `npm view <package> version`, which reads the registry.
 3. **Documentation:** a doc site usually documents the latest version. When the installed version is older, read the changelog between the two before trusting an example.
 4. **The gap:** record both versions in the report's `stack.versions`. A gap that changes a rule is an `info` finding under `docs/current`.
+
+## Before an install
+
+An install with another major of the package manager can rewrite the lock file's format and the project's settings, and leave placeholders the project never asked for (pnpm 12 on a pnpm 10 project wrote unfilled `allowBuilds` entries into `pnpm-workspace.yaml`). Before any install, add or upgrade:
+1. **The project's version.** The scan's `packageJson.packageManager` (`pnpm@10.18.0`) is the version, when it is set. Otherwise infer the major from `packageJson.lockfile` and `lockfileVersion`, confirmed in the manager's own documentation or changelog: npm writes `lockfileVersion` 1 in v5 and v6, 2 in v7 and v8, 3 from v9 (npm lock file, above); for pnpm and yarn, read which majors write the recorded format. A setting only some majors know (in `pnpm-workspace.yaml`, the `pnpm` key of `package.json`, `.yarnrc.yml`) narrows the range. When the evidence does not fix a major, ask.
+2. **The machine's version.** `<manager> --version`. The same major runs as it is.
+3. **Another major runs the project's.** With `packageManager` set and Corepack enabled, the manager's command already resolves to that version. Otherwise run it explicitly: `npx <manager>@<major> install`. Never install with the machine's major and repair what it changed.
+4. **Pin it.** When `packageManager` is missing, propose adding it with the version found in 1. It is a change to `package.json`, so it is asked for first.
+5. **Check what the install changed.** `git diff --stat` after it: a change to the lock file's format line or to a settings file the plan did not name is a version mismatch. Revert it and run the install again with the project's version.

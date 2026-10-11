@@ -59,6 +59,8 @@ The id must not contain a line number: a line moves when unrelated code changes,
 
 **Moved findings:** when the same problem is now at a new location (its values moved to another file, or a group was renamed), the finding keeps the new id and lists the old one in `previousIds`. `compare-reports` then shows it as moved, not as one resolved and one new finding.
 
+**Fix order:** a finding whose fix breaks the project while another finding is open lists that finding's id in `requires`. The prerequisite is a finding of the same report: a closed one is no longer in it. Example: removing Tailwind's default palette (`--color-*: initial`) makes every default palette class (`bg-blue-50`, `from-black/60`) stop producing CSS, with no build error, so the interface loses styles silently. The reset finding requires each finding for a file that still uses those classes (and the group's `#total` finding when files were dropped). `render-report.mjs` refuses a `requires` that names no finding of the report, the finding itself, or a cycle. `fix` runs `scripts/plan-batch.mjs`, which refuses a batch whose prerequisites are neither closed nor in the batch, and orders the rest.
+
 **One value in two documents:** a value the rules document and the code both state is one `docs/rules-hold-no-values` finding at the document location, with each code location as evidence. It is not one finding per code file under `format/single-source-build`, which is about generated outputs.
 
 ## A gate

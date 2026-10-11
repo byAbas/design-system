@@ -2,6 +2,7 @@
   "generated": ["src/styles/*.generated.css"],
   "sources": ["design-system/tokens/**/*.json", "DESIGN.md", "design-system/theme.template.css", "terrazzo.config.ts"],
   "onSourceEdit": ["npm run -s tokens:check"],
+  "build": "npm run -s tokens:build",
   "lint": {
     "files": ["src/**/*.{ts,tsx,js,jsx}"],
     "command": "npx eslint --no-warn-ignored",

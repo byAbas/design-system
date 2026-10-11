@@ -48,6 +48,7 @@ It lists:
 - token files, resolvers and build configs;
 - the rules document and its front matter keys;
 - token and styling packages with their installed versions;
+- the lock file, its format version, and the package manager `package.json` pins;
 - raw colours per source file;
 - generated outputs and existing gates;
 - the profile (`terrazzo-tailwind-v4` or `null`).
