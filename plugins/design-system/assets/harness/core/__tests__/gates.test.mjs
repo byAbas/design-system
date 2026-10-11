@@ -47,8 +47,9 @@ describe("gatesProblems", () => {
   });
 
   it("refuses wrong shapes, and sources that run nothing", () => {
-    assert.deepEqual(gatesProblems({ generated: "a.css", lint: { files: ["x"] }, sources: ["tokens/**"] }), [
+    assert.deepEqual(gatesProblems({ generated: "a.css", build: ["tokens:build"], lint: { files: ["x"] }, sources: ["tokens/**"] }), [
       "generated must be a list of non-empty strings",
+      "build must be the command that rewrites the generated outputs",
       "lint needs files (globs) and command (the linter, which receives the edited files as its last arguments)",
       "sources is set but onSourceEdit runs nothing",
     ]);
@@ -63,10 +64,16 @@ describe("projectPaths", () => {
 });
 
 describe("generatedReason", () => {
-  const gates = { generated: ["src/styles/*.generated.css"], onSourceEdit: ["npm run -s tokens:build"] };
+  const gates = { generated: ["src/styles/*.generated.css"], onSourceEdit: ["npm run -s tokens:check"], build: "npm run -s tokens:build" };
 
   it("names the first generated file and the build that writes it", () => {
-    assert.equal(generatedReason(["src/a.tsx", "/repo/src/styles/theme.generated.css"], gates, { root: "/repo" }), "src/styles/theme.generated.css is generated from the design tokens. Change the token files (or the build's template), then rebuild: npm run -s tokens:build.");
+    assert.equal(generatedReason(["src/a.tsx", "/repo/src/styles/theme.generated.css"], gates, { root: "/repo" }), "src/styles/theme.generated.css is generated from the design tokens. Change the token files (or the build's template), then rebuild with `npm run -s tokens:build`.");
+  });
+
+  it("names no command without build, never a check from onSourceEdit", () => {
+    const reason = generatedReason(["src/styles/theme.generated.css"], { ...gates, build: undefined }, { root: "/repo" });
+    assert.equal(reason, "src/styles/theme.generated.css is generated from the design tokens. Change the token files (or the build's template), then rebuild the outputs with the project's token build.");
+    assert.ok(!reason.includes("tokens:check"));
   });
 
   it("gives nothing when no file is generated", () => {
@@ -103,7 +110,8 @@ describe("checkFiles", () => {
 
   it("returns the lint failure, and the source failure, as the message the agent reads", () => {
     assert.match(checkFiles(["src/a.tsx"], gates, recorder({ lintStatus: 1 }).options), /^The design lint failed for src\/a\.tsx:\n1:1 error design\/no-raw-color/);
-    assert.match(checkFiles(["DESIGN.md"], gates, recorder({ failing: "tokens:check" }).options), /^After editing DESIGN\.md, `tokens:check` failed:\n3 problems/);
+    assert.match(checkFiles(["DESIGN.md"], gates, recorder({ failing: "tokens:check" }).options), /^After editing DESIGN\.md, `tokens:check` failed:\n3 problems\n.*rebuild the outputs instead/);
+    assert.match(checkFiles(["DESIGN.md"], { ...gates, build: "tokens:build" }, recorder({ failing: "tokens:check" }).options), /rebuild the outputs with `tokens:build` instead/);
   });
 
   it("runs onSourceEdit for a changed generated output, so a hand edit fails the staleness check", () => {

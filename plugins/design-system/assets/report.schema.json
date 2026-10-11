@@ -96,6 +96,7 @@
             }
           },
           "previousIds": { "type": "array", "items": { "type": "string", "pattern": "^[a-z]+/[a-z0-9-]+@[^\\s]*#[^\\s]*$" } },
+          "requires": { "type": "array", "description": "Findings of this report that must be closed before this one: its fix breaks the project while they are open (references/report.md, Fix order)", "items": { "type": "string", "pattern": "^[a-z]+/[a-z0-9-]+@[^\\s]*#[^\\s]*$" } },
           "why": { "type": "string", "minLength": 1 },
           "source": { "type": "string" },
           "fix": { "type": "string", "minLength": 1 }

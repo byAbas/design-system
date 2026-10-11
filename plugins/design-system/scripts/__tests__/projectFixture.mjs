@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 
 const FILES = {
   "package.json": JSON.stringify({ name: "fixture-app", scripts: { build: "next build", lint: "eslint ." }, dependencies: { tailwindcss: "^4.1.0", lodash: "^4.17.21" }, devDependencies: { "@terrazzo/cli": "^2.7.1" } }),
-  "package-lock.json": "{}",
+  "package-lock.json": JSON.stringify({ name: "fixture-app", lockfileVersion: 3 }),
   "node_modules/tailwindcss/package.json": JSON.stringify({ name: "tailwindcss", version: "4.1.3" }),
   "node_modules/@terrazzo/cli/package.json": JSON.stringify({ name: "@terrazzo/cli", version: "2.7.1" }),
   "node_modules/lodash/index.js": 'export const x = "#ff0000";\n',

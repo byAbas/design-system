@@ -74,6 +74,7 @@ export function reportProblems(report) {
       if (typeof finding.location?.file !== "string") problems.push(`${at}.location.file is missing`);
       if (finding.previousIds !== undefined && (!Array.isArray(finding.previousIds) || finding.previousIds.some((id) => !isText(id) || !id.includes("@") || !id.includes("#")))) problems.push(`${at}.previousIds must list earlier finding ids (<ruleId>@<file>#<pointer>)`);
     });
+    problems.push(...requiresProblems(r.findings));
   }
 
   if (!Array.isArray(r.gates)) problems.push("gates is not a list");
@@ -99,6 +100,45 @@ export function reportProblems(report) {
     const listed = new Set(r.sources.map((source) => source?.url));
     const cited = new Set((Array.isArray(r.findings) ? r.findings : []).map((finding) => finding?.source).filter((source) => /^https?:\/\//.test(String(source))));
     for (const url of cited) if (!listed.has(url)) problems.push(`sources does not list ${url}, which a finding cites`);
+  }
+  return problems;
+}
+
+/**
+ * Where the findings' `requires` break the fix order: a prerequisite that is not a finding of this report, a finding
+ * that requires itself, or a cycle, which no order can satisfy (references/report.md, Fix order).
+ * @param {any[]} findings
+ * @returns {string[]}
+ */
+export function requiresProblems(findings) {
+  const problems = [];
+  const byId = new Map(findings.filter((finding) => isText(finding?.id)).map((finding) => [finding.id, finding]));
+  findings.forEach((finding, index) => {
+    if (finding?.requires === undefined) return;
+    const at = `findings[${index}].requires`;
+    if (!Array.isArray(finding.requires)) return problems.push(`${at} must list finding ids of this report`);
+    for (const id of finding.requires) {
+      if (id === finding.id) problems.push(`${at} names the finding itself`);
+      else if (!byId.has(id)) problems.push(`${at} names ${JSON.stringify(id)}, which is not a finding of this report`);
+    }
+  });
+  if (problems.length > 0) return problems;
+  // Depth-first: a finding met again while its own prerequisites are being walked closes a cycle.
+  const state = new Map();
+  const walk = (id, path) => {
+    if (state.get(id) === "done") return undefined;
+    if (state.get(id) === "walking") return [...path.slice(path.indexOf(id)), id];
+    state.set(id, "walking");
+    for (const next of byId.get(id)?.requires ?? []) {
+      const cycle = walk(next, [...path, id]);
+      if (cycle) return cycle;
+    }
+    state.set(id, "done");
+    return undefined;
+  };
+  for (const id of byId.keys()) {
+    const cycle = walk(id, []);
+    if (cycle) return [`findings require each other in a cycle, so no order can fix them: ${cycle.join(" → ")}`];
   }
   return problems;
 }
@@ -161,6 +201,7 @@ export function renderReport(report) {
       lines.push(`- Rule: ${code(finding.ruleId)}`);
       lines.push(`- Id: ${code(finding.id)}`);
       if (finding.previousIds?.length) lines.push(`- Previously: ${finding.previousIds.map(code).join(", ")}`);
+      if (finding.requires?.length) lines.push(`- Requires, closed first: ${finding.requires.map(code).join(", ")}`);
       lines.push(`- Location: ${code(finding.location.file)}${finding.location.pointer ? ` at ${code(finding.location.pointer)}` : ""}`);
       for (const evidence of finding.evidence ?? []) {
         const where = `${evidence.file}${evidence.line ? `:${evidence.line}` : ""}`;
