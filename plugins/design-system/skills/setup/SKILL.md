@@ -85,13 +85,14 @@ The group names are the canonical ones, so the checks need no configuration.
 - A list of roles named by purpose (decisions, Naming), each aliasing a palette step per context. For a 12-step scale, choose steps by the scale anatomy (decisions, Scale anatomy).
 - Every context defines every role.
 - State roles alias the next step when it reads as a state. Otherwise they are derived by a recorded rule, with the rule in `$extensions` and in `$description`, and the stored value computed at build (decisions, Interaction states).
+- A translucent role (a scrim, a faint fill) is derived by an `alpha` rule from its opaque base, never a literal copy of it.
 
 **Text styles.** DTCG `typography` composites whose family and weight alias `font.*` tokens.
 
 **Other groups.** Radii, spacing and shadows, as the product needs them. Shadows are per context when they differ.
 
 **Rules document.** A `DESIGN.md` from `${CLAUDE_PLUGIN_ROOT}/assets/setup/DESIGN.md`:
-- the front matter holds `imports:` and the `components:` contract, by role id;
+- the front matter holds `imports:` and the `components:` contract, by role id. Each component names its `backgroundColor`, `textColor` and `typography`, so the check can measure its contrast in every context;
 - every section explains meaning, use and reasons, and cites ids, never values;
 - it includes the "Reading the tokens" guide;
 - it lists the contrast pairs (decisions, Contrast).

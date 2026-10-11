@@ -6,7 +6,12 @@
 // - `imports:` names the project's resolver;
 // - tiers/components-read-roles: every contract property names a token
 //   (`{colors.primary}`), never a value and never the palette;
-// - docs/rules-reference-existing-tokens: every token it names exists.
+// - docs/rules-reference-existing-tokens: every token it names exists;
+// - tiers/contrast-pairs: each component's textColor over its backgroundColor
+//   meets WCAG 2.1 AA in every context (lib/color.mjs): 4.5:1, or 3:1 when its
+//   typography is large text. A variant (`button-primary-hover`) takes what it
+//   does not state from the component its key extends (`button-primary`), as
+//   the design.md format reads variants; a disabled variant is exempt.
 //
 //   node check-rules-contract.mjs        exit 1 and one line per problem
 //
@@ -19,6 +24,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readProjectTokens } from "./check-tokens.mjs";
+import { colorHex, contrastRatio, readColor } from "./lib/color.mjs";
 import { flagSettings, importFromProject, tokenSettings } from "./lib/project-modules.mjs";
 
 /** The keys a rules document's front matter may hold: identity, the import, the contract. */
@@ -65,6 +71,90 @@ export function contractProblems(front, tokenIds, settings) {
   return problems;
 }
 
+/** The CSS Fonts weight keywords DTCG accepts for fontWeight (Format §8.4), by number. */
+const WEIGHTS = { thin: 100, hairline: 100, "extra-light": 200, "ultra-light": 200, light: 300, normal: 400, regular: 400, book: 400, medium: 500, "semi-bold": 600, "demi-bold": 600, bold: 700, "extra-bold": 800, "ultra-bold": 800, black: 900, heavy: 900, "extra-black": 950, "ultra-black": 950 };
+
+/** A DTCG dimension in CSS pixels, a rem being 16px; undefined for anything else. */
+function pixels(dimension) {
+  if (typeof dimension === "object" && dimension !== null) return dimension.unit === "px" ? dimension.value : dimension.unit === "rem" ? dimension.value * 16 : undefined;
+  const match = /^([\d.]+)(px|rem)$/.exec(String(dimension));
+  return match ? Number(match[1]) * (match[2] === "rem" ? 16 : 1) : undefined;
+}
+
+/**
+ * True when a resolved typography value is large text in WCAG's terms: at least 18pt (24px), or 14pt (about
+ * 18.67px) and bold (700 or more). https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html
+ */
+export function isLargeText(typography) {
+  const size = pixels(typography?.fontSize);
+  if (size === undefined) return false;
+  const weight = typeof typography.fontWeight === "number" ? typography.fontWeight : WEIGHTS[String(typography.fontWeight).toLowerCase()] ?? 400;
+  return size * 0.75 >= 18 || (size * 0.75 >= 14 && weight >= 700);
+}
+
+/**
+ * Each component's properties with what a variant inherits: a key that extends another (`button-primary-hover`
+ * extends `button-primary`) takes each property it does not state from the longest key it extends that does.
+ * @param {Record<string, Record<string, unknown>>} components
+ * @returns {Record<string, Record<string, { value: unknown, from?: string }>>}
+ */
+export function withVariants(components) {
+  const keys = Object.keys(components);
+  return Object.fromEntries(
+    keys.map((key) => {
+      const bases = keys.filter((base) => key.startsWith(`${base}-`)).sort((a, b) => b.length - a.length);
+      const properties = {};
+      for (const base of [...bases].reverse()) for (const [property, value] of Object.entries(components[base] ?? {})) properties[property] = { value, from: base };
+      for (const [property, value] of Object.entries(components[key] ?? {})) properties[property] = { value };
+      return [key, properties];
+    }),
+  );
+}
+
+/**
+ * Every contract pair below WCAG 2.1 AA, in each context, one sentence each, prefixed with its rubric rule id; and
+ * how many pairs were measured, and which could not be: a translucent background has no colour until it is painted
+ * over something the contract does not name.
+ * @param {Record<string, unknown>} front the parsed front matter
+ * @param {Record<string, Record<string, any>>} contexts context name → resolved tokens
+ */
+export function contrastProblems(front, contexts) {
+  const problems = [];
+  const unmeasured = [];
+  let measured = 0;
+  const components = typeof front.components === "object" && front.components !== null && !Array.isArray(front.components) ? front.components : {};
+  for (const [component, properties] of Object.entries(withVariants(components))) {
+    if (/(^|-)disabled(-|$)/.test(component)) continue;
+    const text = properties.textColor;
+    const background = properties.backgroundColor;
+    if (!text || !background) continue;
+    const id = (property) => REFERENCE.exec(String(property.value))?.slice(1).join(".");
+    for (const [context, tokens] of Object.entries(contexts)) {
+      const fore = tokens[id(text)];
+      const back = tokens[id(background)];
+      if (fore?.$type !== "color" || back?.$type !== "color") continue;
+      const [foreHex, backHex] = [colorHex(fore.$value), colorHex(back.$value)];
+      const [foreAlpha, backAlpha] = [readColor(fore.$value).alpha, readColor(back.$value).alpha];
+      const where = `${Object.keys(contexts).length > 1 ? `${context}: ` : ""}components.${component}`;
+      if (backAlpha < 1) {
+        unmeasured.push(`${where}: backgroundColor ${background.value} is translucent`);
+        continue;
+      }
+      measured += 1;
+      const typography = properties.typography && tokens[id(properties.typography)]?.$value;
+      const large = isLargeText(typography);
+      const minimum = large ? 3 : 4.5;
+      const ratio = contrastRatio(foreHex, backHex, foreAlpha);
+      if (ratio >= minimum) continue;
+      const inherited = [text, background].filter((property) => property.from).map((property) => `${property === text ? "textColor" : "backgroundColor"} from ${property.from}`);
+      problems.push(
+        `tiers/contrast-pairs: ${where}: textColor ${text.value} (${foreHex}${foreAlpha < 1 ? ` at alpha ${foreAlpha}` : ""}) on backgroundColor ${background.value} (${backHex}) is ${(Math.floor(ratio * 100) / 100).toFixed(2)}:1, below ${minimum}:1 for ${large ? "large " : ""}text (WCAG 2.1 SC 1.4.3)${inherited.length > 0 ? `; ${inherited.join(", ")}` : ""}`,
+      );
+    }
+  }
+  return { problems, measured, unmeasured };
+}
+
 async function main() {
   const root = process.cwd();
   const settings = tokenSettings(root, flagSettings(process.argv.slice(2)));
@@ -81,12 +171,16 @@ async function main() {
     return 1;
   }
   const tokenIds = new Set(Object.values(contexts).flatMap((tokens) => Object.keys(tokens)));
-  const problems = contractProblems(parseYaml(yaml) ?? {}, tokenIds, settings);
+  const front = parseYaml(yaml) ?? {};
+  const contrast = contrastProblems(front, contexts);
+  const problems = [...contractProblems(front, tokenIds, settings), ...contrast.problems];
+  for (const pair of contrast.unmeasured) console.error(`note: not measured, ${pair}; its contrast depends on what it is painted over`);
+  const checked = `${contrast.measured} contrast pairs in ${Object.keys(contexts).join(", ") || "no context"}`;
   if (problems.length > 0) {
-    console.error(`${settings.rulesDocument} breaks the rules document's contract:\n${problems.map((problem) => `  - ${problem}`).join("\n")}`);
+    console.error(`${settings.rulesDocument} breaks the rules document's contract:\n${problems.map((problem) => `  - ${problem}`).join("\n")}\ncheck-rules-contract: checked ${checked}`);
     return 1;
   }
-  console.log(`check-rules-contract: ${settings.rulesDocument} holds no values and names ${tokenIds.size > 0 ? "existing" : "no"} tokens`);
+  console.log(`check-rules-contract: ${settings.rulesDocument} holds no values, names ${tokenIds.size > 0 ? "existing" : "no"} tokens, and meets WCAG 2.1 AA in ${checked}`);
   return 0;
 }
 

@@ -13,8 +13,6 @@ What the plugin should do next, and why. Each item names the project run that sh
 - **Scan candidates carry evidence**, so the auditor does not re-derive why a file was picked.
 - **A token without `$type`** is valid DTCG when its type is inherited or resolved; the check should accept it.
 - **Derived rules for dimensions**, not only colours.
-- **Contrast is a rubric rule.** No rule checks that the pairs the rules document approves, or the pairs the contract combines, meet WCAG 2.1 AA (SC 1.4.3 for text, 1.4.11 for non-text). ispanviza-web's primary button (white over the gold end of its gradient, about 1.7:1) and WhatsApp button (about 2.3:1) were found by the agent computing them, not by the audit; cv-screener's contrast came only from its own design.md lint. Compute each contract pair and each approved pair per context, with the plugin's colour maths, and report the failures. (ispanviza-web)
-- **An alpha derivation.** Derived rules support `lightness` and `mix` only, so a translucent colour (a scrim, a faint status fill) has to be a literal copy of its base with an alpha channel, which does not follow when the base changes. Add `{ kind: "alpha", from, alpha }` to the derived rules and to `check-tokens`. It came up three times: cv-screener's shimmer (`mix`), ispanviza-web's `green-100-a50` and `red-100-a30`, and its black scrims. (cv-screener, ispanviza-web)
 - **`--extension-key` flag**, and `tokenSettings` keys that match the setting names in `gates.json`.
 - **Before proposing a dependency,** the auditor proposes the project's own reader or tool when one exists.
 - **Studies:** `@shadcn/lint` and fallow, for overlap with the rubric.
@@ -41,7 +39,7 @@ Found migrating hand-written CSS with a sets-only resolver (one context). cv-scr
 - **plugin-tailwind reads plugin-css's transforms,** so plugin-css must transform every token, and it writes a `:root` copy of the roles. Document that the two copies are expected.
 - **`legacyHex` rounds alpha** (0.12 became about 0.1216). Write colours with transparency as `rgb(r g b / alpha)`.
 
-## The design source (0.9.0)
+## The design source
 
 The design source (Figma later) exports the tokens: a token carries its value and its definition (`$description`), and the rules document holds only the rules for using them.
 

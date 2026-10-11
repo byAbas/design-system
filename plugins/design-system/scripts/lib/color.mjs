@@ -1,5 +1,6 @@
 // Colour maths for derived roles (references/decisions.md, Interaction
-// states): read a DTCG colour, and compute the hex a derived rule gives. No
+// states) and for contrast (decisions, Contrast): read a DTCG colour, compute
+// the hex a derived rule gives, and the WCAG contrast of a pair. No
 // dependencies.
 //
 // A derived value is stored in the tokens, and a check recomputes it, so the
@@ -169,4 +170,41 @@ export function derivedHex(rule, roleHex) {
   const from = hexToRgb(roleHex(rule.from));
   if (rule.kind === "lightness") return rgbToHex(shiftLightness(from, rule.lightness));
   return rgbToHex(mixSrgb(from, hexToRgb(roleHex(rule.over)), rule.weight));
+}
+
+// ---------- contrast (WCAG 2.x) ----------
+//
+// Plain double precision, unlike the derived rules above: a ratio is compared
+// with a threshold, never stored, so it has no build to match byte for byte.
+
+/** A 6-digit hex as gamma-encoded sRGB channels from 0 to 1. */
+const channels = (hex) => [0, 2, 4].map((i) => parseInt(hex.replace(/^#/, "").slice(i, i + 2), 16) / 255);
+
+/**
+ * The WCAG 2.x relative luminance of gamma-encoded sRGB channels (0 to 1): 0 for black, 1 for white. The threshold
+ * is 0.04045, as WCAG 2.2 and technique G18 write it; WCAG 2.0's 0.03928 gives the same result for 8-bit channels.
+ * https://www.w3.org/WAI/WCAG22/Techniques/general/G18
+ */
+export function relativeLuminance(rgb) {
+  const linear = rgb.map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+}
+
+/** A colour at `alpha` painted over an opaque backdrop: CSS source-over compositing, in gamma-encoded sRGB. */
+export function compositeOver(rgb, alpha, backdrop) {
+  return rgb.map((c, i) => c * alpha + backdrop[i] * (1 - alpha));
+}
+
+/**
+ * The WCAG 2.x contrast ratio of a foreground over an opaque background, from 1 to 21. A translucent foreground is
+ * composited over the background first: it has no contrast of its own, only against what it is painted on.
+ * @param {string} foreground 6-digit hex
+ * @param {string} background 6-digit hex, opaque
+ * @param {number} [alpha] the foreground's alpha
+ */
+export function contrastRatio(foreground, background, alpha = 1) {
+  const back = channels(background);
+  const front = alpha < 1 ? compositeOver(channels(foreground), alpha, back) : channels(foreground);
+  const [lighter, darker] = [relativeLuminance(front), relativeLuminance(back)].sort((a, b) => b - a);
+  return (lighter + 0.05) / (darker + 0.05);
 }

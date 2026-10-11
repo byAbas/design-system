@@ -7,6 +7,25 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.9.0
+
+Contrast is checked, and a translucent colour follows its base.
+
+- **New rule `tiers/contrast-pairs`.** Each component in the contract is measured: its `textColor` over its `backgroundColor`, in every context, against WCAG 2.1 AA. The audit had no such rule. ispanviza-web's primary button (white over gold, about 1.7:1) and its WhatsApp button (about 2.3:1) were found by an agent computing them, and cv-screener's contrast only by its own design.md lint. The rules-contract check now does it:
+  - in every context, since a role is chosen per context and a pair that passes in light can fail in dark (design.md's own `contrast-ratio` reads one);
+  - a translucent `textColor` is composited over the background first, as CSS paints it;
+  - large text, read from the component's `typography`, is held to 3:1, and other text to 4.5:1. The ratio is never rounded up, so 4.49:1 fails;
+  - a variant (`button-primary-hover`) takes the colours it does not state from the component its key extends, as the design.md format reads variants, so a hover background is checked against the text it shows. A disabled variant is exempt (SC 1.4.3);
+  - a translucent `backgroundColor` is not measured, and the check says so on each run, instead of passing it silently.
+- **An `alpha` derived rule.** `{ "kind": "alpha", "from": "<role>", "alpha": 0.5 }` derives a scrim or a faint fill from its opaque base, and `check-tokens` holds the stored colour and alpha to it. Before, only `lightness` and `mix` existed, so a translucent colour was a literal copy of its base that did not follow when the base changed. It came up three times: cv-screener's shimmer, and ispanviza-web's `green-100-a50`, `red-100-a30` and black scrims.
+- **A derived rule reads opaque roles.** A `lightness`, `mix` or `alpha` rule that reads a translucent role is refused, and so is a `lightness` or `mix` value stored with an alpha: a translucent role is only a colour once it is painted over something.
+- **The maths is the plugin's own**, in `scripts/lib/color.mjs`, with no dependency: WCAG 2.x relative luminance (the 0.04045 threshold of WCAG 2.2 and G18) and source-over compositing. The design systems that compute contrast mostly do the same: Meta's Astryx, Google's Material Color Utilities, Atlassian and Adobe Leonardo write it in-house (decisions, Contrast). It is tested against WCAG's reference values: 21:1, and `#767676` on white at 4.54:1 while `#777777` falls below 4.5.
+
+**Upgrading from 0.8.x**
+- A project with the harness copies the checks again: `scripts/check-tokens.mjs`, `scripts/check-rules-contract.mjs` and `scripts/lib/*.mjs` into `design-system/checks/`.
+- The first run may report contrast failures that were always there. Each is a finding to fix in the tokens, never a reason to weaken the check.
+- A translucent colour copied by hand from its base becomes an `alpha` rule on a role, so it follows the base.
+
 ## 0.8.1
 
 What the runs on cv-screener, ispanviza-web and abasturabli.com showed going wrong.

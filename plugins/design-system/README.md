@@ -101,7 +101,7 @@ Four parts, each `met`, `partial` or `missing`. Every finding names a rule id th
 | Part | Checks |
 |---|---|
 | `naming` | Roles named by purpose, one case convention, one name from tokens to code |
-| `tiers` | Palette holds values, roles alias the palette or record a derived rule, text styles alias the fonts, code never reads the palette or states a literal, the component contract names roles |
+| `tiers` | Palette holds values, roles alias the palette or record a derived rule (lightness, mix or alpha), text styles alias the fonts, code never reads the palette or states a literal, the component contract names roles, and its pairs meet WCAG 2.1 AA in every context |
 | `format` | Valid DTCG, every theme complete, outputs generated and checked for staleness, a machine-readable contract |
 | `docs` | A rules document exists; it holds no values, cites existing tokens, explains how to read them, and stays current |
 

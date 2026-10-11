@@ -59,6 +59,13 @@ Sources:
 - Each state colour is a role with a static value in every theme.
 - When the palette's next step is distinct enough, the state role aliases it.
 - When it is not, the state role is derived by a recorded rule, for example an OKLCH lightness shift, or a mix over the surface.
+- A translucent role (a scrim, a faint status fill) is derived too, by an `alpha` rule: its opaque base at a fixed alpha. A literal copy of the base with an alpha does not follow when the base changes.
+- The three kinds the checks recompute, under the project's `$extensions` key as `derived`:
+  - `{ "kind": "lightness", "from": "<role>", "lightness": -0.07 }`: the OKLCH lightness of `from` moved, hue and chroma kept;
+  - `{ "kind": "mix", "from": "<role>", "weight": 0.6, "over": "<role>" }`: `from` at `weight` over `over`, in sRGB;
+  - `{ "kind": "alpha", "from": "<role>", "alpha": 0.5 }`: `from` at `alpha`.
+
+  A rule reads opaque roles: a translucent role is only a colour once it is painted over something.
 - The rule is stored in the token's `$extensions` and restated in its `$description`. A check confirms the stored value equals what the rule gives.
 
 **Why:** the major systems ship states as tokens with fixed values per theme, not as colour maths at runtime:
@@ -137,9 +144,22 @@ Source: https://www.designtokens.org/tr/2025.10/format/ (Typography type)
   - 3:1 for icons, borders that identify controls, and focus indicators (SC 1.4.11).
 - Text in a disabled control is exempt (SC 1.4.3 exception for inactive components).
 
+**How it is checked:** the contract names each component's `backgroundColor`, `textColor` and `typography`, so the pairs a component combines are machine-readable. The rules-contract check computes each pair in each context with the plugin's own colour maths (`tiers/contrast-pairs`):
+- a translucent text colour is composited over the background first, as CSS paints it;
+- large text, from the component's `typography`, is held to 3:1;
+- a variant takes the colours it does not state from the component it extends, so a hover background is checked against the text it shows;
+- a translucent background is not measured: what it sits on is not in the contract.
+
+Pairs the rules document approves only in prose stay a review item.
+
+**Own maths, no colour library:** WCAG 2.x relative luminance and source-over compositing are a few lines each and have not changed in years. The design systems that compute contrast mostly write them in-house with no runtime dependency: Meta's Astryx ("Dependency-free WCAG 2.x contrast math"), Google's Material Color Utilities, Atlassian, and Adobe Leonardo; GitHub Primer keeps its colour libraries as build-time devDependencies. The checks are copied into a project and run in its pre-commit hook and CI, where a dependency would be one more thing to install. The maths is tested against WCAG's reference values (21:1, `#767676` on white at 4.54:1).
+
 Sources:
 - https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html
 - https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html
+- https://www.w3.org/WAI/WCAG22/Techniques/general/G18
+- https://github.com/facebook/astryx/blob/main/packages/core/src/theme/contrast.ts
+- https://github.com/material-foundation/material-color-utilities/blob/main/typescript/contrast/contrast.ts
 
 ## The rules document
 
