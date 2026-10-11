@@ -5,7 +5,9 @@
 // format itself:
 //
 // - format/dtcg-valid: what the reader finds wrong with the files or the
-//   resolver (lib/dtcg.mjs), including a modifier with fewer than two contexts;
+//   resolver (lib/dtcg.mjs), including a modifier with fewer than two contexts,
+//   and every token file the resolver reads checked against the DTCG 2025.10
+//   JSON Schema itself (lib/dtcg-schema.mjs);
 // - tiers/palette-literal: a palette entry is a colour value, never an alias;
 // - tiers/role-aliases-palette: a colour role points to the palette itself,
 //   not to another role and not a literal, or it is derived;
@@ -36,10 +38,11 @@
 // from the flags.
 
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { colorHex, derivedHex, readColor } from "./lib/color.mjs";
 import { loadResolver, loadTokenFiles, modifiersOf, resolveTokens } from "./lib/dtcg.mjs";
+import { schemaProblems } from "./lib/dtcg-schema.mjs";
 import { flagSettings, readConfig, tokenSettings } from "./lib/project-modules.mjs";
 import { gateProblems } from "./lib/suppressions.mjs";
 
@@ -201,6 +204,11 @@ export function readProjectTokens(root, settings) {
     const { tokens, problems: found } = resolveTokens(source, input);
     contexts[name] = tokens;
     for (const problem of found) problems.add(`format/dtcg-valid: ${problem}`);
+  }
+  // The resolver has its own module; every other file it read is a token file, held to the format's schema.
+  for (const [path, document] of source.loaded()) {
+    if (path === source.path) continue;
+    for (const problem of schemaProblems(document)) problems.add(`format/dtcg-valid: ${relative(root, path).split("\\").join("/")}${problem.startsWith("/") ? "#" : " "}${problem}`);
   }
   return { contexts, problems: [...problems] };
 }

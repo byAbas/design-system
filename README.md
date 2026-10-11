@@ -22,6 +22,8 @@ claude plugin install design-system@abasturabli
 | `/design-system:audit` | Checks the project against the Token Architecture rubric and writes a report with stable finding ids |
 | `/design-system:fix` | Plans a fix for chosen findings, waits for approval, implements, re-audits and compares |
 | `/design-system:harness` | Installs the gates: token and rules checks, Claude Code hooks, a git pre-commit hook and CI |
+| `/design-system:figma-export` | Writes the tokens as variable files Figma imports natively, which are also the baseline for the way back |
+| `/design-system:figma-propose` | Turns a designer's Figma changes into a proposal for the tokens, reviewed and gated, never written over them |
 
 Stack, dependencies, the rubric and how each part works: [plugins/design-system](plugins/design-system/README.md). Every change, with its reason: [CHANGELOG](plugins/design-system/CHANGELOG.md).
 

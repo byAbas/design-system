@@ -182,7 +182,7 @@ Each rule block has five fields:
   - dimensions use `px` or `rem` (8.2);
   - every alias resolves.
 - **Why:** decisions, Token format.
-- **Check (core):** run the project's DTCG parser or validator if one is installed. Otherwise read the files against the format.
+- **Check (core):** `scripts/check-tokens.mjs` reads the files with the plugin's DTCG reader and validates every token file against the DTCG 2025.10 JSON Schema, each value against its inherited type. Run the project's own validator too, if one is installed.
 - **Gate:** the build tool's check (Terrazzo: `tz check`).
 - **Default:** `error`. When the project has tokens in another format, one `warning` names the format and the migration path.
 

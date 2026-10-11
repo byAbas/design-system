@@ -153,6 +153,21 @@ describe("readProjectTokens", () => {
     }
   });
 
+  it("holds every token file the resolver reads to the DTCG 2025.10 schema", () => {
+    const root = write({
+      "design-system/tokens/foundation/palette.tokens.json": { palette: { $type: "color", "gray-1": { $value: "#fcfcfc" } } },
+      "design-system/tokens/semantic/colors.tokens.json": { colors: { $type: "color", surface: { $value: "{palette.gray-1}" } } },
+      "design-system/tokens/design.resolver.json": { version: "2025.10", sets: { base: { sources: [{ $ref: "foundation/palette.tokens.json" }, { $ref: "semantic/colors.tokens.json" }] } }, resolutionOrder: [{ $ref: "#/sets/base" }] },
+    });
+    try {
+      const { problems } = readProjectTokens(root, settings);
+      assert.equal(problems.length, 1, problems.join("\n"));
+      assert.match(problems[0], /^format\/dtcg-valid: design-system\/tokens\/foundation\/palette\.tokens\.json#\/palette.*\$value is string, expected object/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("says where to point it when there is no resolver and no files", () => {
     const root = write({});
     try {
