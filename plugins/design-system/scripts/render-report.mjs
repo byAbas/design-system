@@ -22,6 +22,9 @@ const SEVERITIES = ["error", "warning", "info"];
 const RUNS = ["agent-edit", "agent-commit", "commit", "ci"];
 const GATE_STATUSES = ["present", "partial", "missing"];
 const RULE_ID = /^(naming|tiers|format|docs)\/[a-z0-9-]+$/;
+/** A finding's status: open by default, accepted (suppressed), or out of scope (exempt). */
+export const STATUSES_OF_FINDINGS = ["open", "accepted", "out-of-scope"];
+export const statusOf = (finding) => finding.status ?? "open";
 
 const isText = (value) => typeof value === "string" && value.trim().length > 0;
 
@@ -40,6 +43,7 @@ export function reportProblems(report) {
   if (typeof r.project?.root !== "string") problems.push("project.root is missing");
   if (r.project?.dirty !== undefined && typeof r.project.dirty !== "boolean") problems.push("project.dirty must be true or false");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.date ?? ""))) problems.push("date is not an ISO date (YYYY-MM-DD)");
+  if (r.baseline !== undefined && !isText(r.baseline)) problems.push("baseline must name the baseline report's file");
   if (!r.stack || typeof r.stack !== "object" || !("profile" in r.stack)) problems.push("stack.profile is missing (null when no profile applies)");
   else if (r.stack.targetProfile !== undefined && (r.stack.profile !== null || !PROFILES.includes(r.stack.targetProfile))) problems.push(`stack.targetProfile is ${JSON.stringify(r.stack.targetProfile)}: it names one of ${PROFILES.join(", ")}, and only when stack.profile is null`);
 
@@ -72,6 +76,8 @@ export function reportProblems(report) {
       if (isText(finding.id) && finding.id.endsWith("@project#total") && finding.severity !== "info") problems.push(`${at} is a group total (${finding.id}), so its severity is info, not ${finding.severity}`);
       for (const field of ["title", "why", "fix"]) if (!isText(finding[field])) problems.push(`${at}.${field} is missing`);
       if (typeof finding.location?.file !== "string") problems.push(`${at}.location.file is missing`);
+      if (finding.status !== undefined && !STATUSES_OF_FINDINGS.includes(finding.status)) problems.push(`${at}.status is ${JSON.stringify(finding.status)}, expected one of ${STATUSES_OF_FINDINGS.join(", ")}`);
+      else if (statusOf(finding) !== "open" && !isText(finding.statusReason)) problems.push(`${at} is ${finding.status}, so it needs statusReason: the suppression's or the exemption's reason`);
       if (finding.previousIds !== undefined && (!Array.isArray(finding.previousIds) || finding.previousIds.some((id) => !isText(id) || !id.includes("@") || !id.includes("#")))) problems.push(`${at}.previousIds must list earlier finding ids (<ruleId>@<file>#<pointer>)`);
     });
     problems.push(...requiresProblems(r.findings));
@@ -175,6 +181,7 @@ export function renderReport(report) {
   lines.push("# Design Token Architecture Audit", "");
   lines.push(`- Project: ${project.name}${project.commit ? ` (${code(project.commit)})` : ""}${project.dirty ? ", with uncommitted changes" : ""}`);
   lines.push(`- Date: ${report.date}`);
+  if (report.baseline) lines.push(`- Baseline: ${code(report.baseline)}`);
   lines.push(`- Profile: ${stack.profile ?? (stack.targetProfile ? `none detected; the recommended gates target ${stack.targetProfile}` : "none (core rules only)")}`);
   if (stack.tokenFormat) lines.push(`- Token format: ${stack.tokenFormat}`);
   if (stack.rulesDocument) lines.push(`- Rules document: ${code(stack.rulesDocument)}`);
@@ -185,8 +192,13 @@ export function renderReport(report) {
     const part = report.parts.find((candidate) => candidate.id === id);
     lines.push(`| ${id} | ${part.status} | ${cell(part.summary)} |`);
   }
-  const counts = SEVERITIES.map((severity) => `${report.findings.filter((finding) => finding.severity === severity).length} ${severity}`);
-  lines.push("", `Findings: ${counts.join(", ")}.`, "");
+  // Out-of-scope findings are recorded, not counted: an exemption says the rubric does not apply there.
+  const inScope = report.findings.filter((finding) => statusOf(finding) !== "out-of-scope");
+  const counts = SEVERITIES.map((severity) => `${inScope.filter((finding) => finding.severity === severity).length} ${severity}`);
+  const accepted = inScope.filter((finding) => statusOf(finding) === "accepted").length;
+  const outOfScope = report.findings.length - inScope.length;
+  const aside = [accepted > 0 ? `${accepted} of them accepted` : "", outOfScope > 0 ? `${outOfScope} out of scope, not counted` : ""].filter(Boolean).join("; ");
+  lines.push("", `Findings: ${counts.join(", ")}${aside ? ` (${aside})` : ""}.`, "");
 
   lines.push("## Findings", "");
   if (report.findings.length === 0) lines.push("None.", "");
@@ -198,6 +210,7 @@ export function renderReport(report) {
     lines.push(`### ${id}`, "");
     for (const finding of findings) {
       lines.push(`#### ${finding.severity}: ${finding.title}`, "");
+      if (statusOf(finding) !== "open") lines.push(`- Status: ${finding.status}: ${finding.statusReason}`);
       lines.push(`- Rule: ${code(finding.ruleId)}`);
       lines.push(`- Id: ${code(finding.id)}`);
       if (finding.previousIds?.length) lines.push(`- Previously: ${finding.previousIds.map(code).join(", ")}`);

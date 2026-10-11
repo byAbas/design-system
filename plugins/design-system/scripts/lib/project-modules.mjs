@@ -12,6 +12,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { matchesAny } from "./glob.mjs";
 
 /** The config file, relative to the root; the second is where 0.3.x kept it, still read. */
 export const CONFIG_FILES = ["design-system/gates.json", "design-tokens.gates.json"];
@@ -72,6 +73,32 @@ export function readConfig(root = process.cwd()) {
     }
   }
   return { path: null, config: {}, notes: [] };
+}
+
+/**
+ * The config's exemptions: paths whose content is artwork or non-UI output (a flag icon, a logo, email HTML), and the
+ * rules they are exempt from, every rule when `rules` is left out. Each has a reason, so the decision is recorded and
+ * the next audit does not ask again. `problems` names a malformed entry.
+ * @returns {{ exemptions: { paths: string[], rules?: string[], reason: string }[], problems: string[] }}
+ */
+export function exemptionsOf(config) {
+  const list = config?.exempt ?? [];
+  if (!Array.isArray(list)) return { exemptions: [], problems: ["exempt must be a list of { paths, rules?, reason }"] };
+  const problems = [];
+  const exemptions = list.filter((entry, index) => {
+    const ok =
+      Array.isArray(entry?.paths) && entry.paths.length > 0 && entry.paths.every((path) => typeof path === "string" && path.trim()) &&
+      (entry.rules === undefined || (Array.isArray(entry.rules) && entry.rules.every((rule) => /^[a-z]+\/[a-z0-9-]+$/.test(rule)))) &&
+      typeof entry.reason === "string" && entry.reason.trim().length > 0;
+    if (!ok) problems.push(`exempt[${index}] needs paths (globs), a reason, and rules as rubric rule ids when it names any`);
+    return ok;
+  });
+  return { exemptions, problems };
+}
+
+/** True when an exemption covers `file` (relative, forward slashes) for `rule`. */
+export function isExempt(file, rule, exemptions) {
+  return exemptions.some((exemption) => (exemption.rules === undefined || exemption.rules.includes(rule)) && matchesAny(file, exemption.paths));
 }
 
 /** The project's token settings: TOKEN_DEFAULTS, then the config's `tokens`, then `flags`. */

@@ -18,7 +18,12 @@
 //   does not state from the component its key extends (`button-primary`), as
 //   the design.md format reads variants; a disabled variant is exempt.
 //
-//   node check-rules-contract.mjs        exit 1 and one line per problem
+//   node check-rules-contract.mjs [--suppress-all] [--prune-suppressions]
+//   exit 1 and one line per problem
+//
+// A problem recorded in design-system/suppressions.json does not fail it, and
+// a recorded one that no longer occurs does, until pruned (lib/suppressions.mjs).
+// A file an exemption in design-system/gates.json covers is left out of coverage.
 //
 // Reads the front matter with the project's `yaml`, and the token ids with the
 // plugin's own DTCG reader (lib/dtcg.mjs). The settings come from
@@ -30,7 +35,11 @@ import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readProjectTokens } from "./check-tokens.mjs";
 import { colorHex, contrastRatio, readColor } from "./lib/color.mjs";
-import { flagSettings, importFromProject, tokenSettings } from "./lib/project-modules.mjs";
+import { exemptionsOf, flagSettings, importFromProject, isExempt, readConfig, tokenSettings } from "./lib/project-modules.mjs";
+import { gateProblems } from "./lib/suppressions.mjs";
+
+/** The rubric rules this check decides, so it prunes only its own suppressions. */
+export const RULES = ["docs/rules-hold-no-values", "docs/rules-reference-existing-tokens", "tiers/components-read-roles", "tiers/contrast-pairs"];
 
 /** The keys a rules document's front matter may hold: identity, the import, the contract. */
 export const ALLOWED_KEYS = ["version", "name", "description", "imports", "components"];
@@ -53,7 +62,7 @@ export function frontMatterText(markdown) {
 export function contractProblems(front, tokenIds, settings) {
   const problems = [];
   for (const key of Object.keys(front)) {
-    if (!ALLOWED_KEYS.includes(key)) problems.push(`docs/rules-hold-no-values: the front matter holds \`${key}:\`; values live in the token files it imports, the rules document holds rules`);
+    if (!ALLOWED_KEYS.includes(key)) problems.push(`docs/rules-hold-no-values: \`${key}:\` in the front matter holds values; they live in the token files it imports, the rules document holds rules`);
   }
   const imports = String(front.imports ?? "").replace(/^\.\//, "");
   if (imports !== settings.resolver.replace(/^\.\//, "")) problems.push(`docs/rules-reference-existing-tokens: \`imports:\` is ${front.imports ?? "missing"}; it names the tokens at ./${settings.resolver}`);
@@ -252,7 +261,10 @@ export function contrastProblems(front, contexts) {
 
 async function main() {
   const root = process.cwd();
-  const settings = tokenSettings(root, flagSettings(process.argv.slice(2)));
+  const argv = process.argv.slice(2);
+  const settings = tokenSettings(root, flagSettings(argv));
+  const { exemptions, problems: exemptProblems } = exemptionsOf(readConfig(root).config);
+  for (const problem of exemptProblems) console.error(`note: design-system/gates.json: ${problem}`);
   const { parse: parseYaml } = await importFromProject("yaml", root);
   const markdown = readFileSync(join(root, settings.rulesDocument), "utf8");
   const yaml = frontMatterText(markdown);
@@ -270,15 +282,19 @@ async function main() {
   const contrast = contrastProblems(front, contexts);
   const keys = Object.keys(typeof front.components === "object" && front.components !== null ? front.components : {});
   const roleNames = [...new Set(Object.values(contexts).flatMap((tokens) => Object.keys(tokens)).filter((id) => id.startsWith(`${settings.roles}.`)).map((id) => id.slice(settings.roles.length + 1)))];
-  const coverage = coverageProblems(keys, componentFiles(root, settings.code), roleReader(roleNames));
-  const problems = [...contractProblems(front, tokenIds, settings), ...coverage.problems, ...contrast.problems];
+  const files = componentFiles(root, settings.code).filter((file) => !isExempt(file.path, "tiers/components-read-roles", exemptions));
+  const coverage = coverageProblems(keys, files, roleReader(roleNames));
+  const found = [...contractProblems(front, tokenIds, settings), ...coverage.problems, ...contrast.problems];
+  const { failing: problems, suppressed, notes } = gateProblems(root, argv, found, { contexts: Object.keys(contexts), rules: RULES });
+  for (const note of notes) console.error(`note: ${note}`);
   for (const pair of contrast.unmeasured) console.error(`note: not measured, ${pair}; its contrast depends on what it is painted over`);
   const checked = `${coverage.reading} component files that read roles (in ${settings.code.join(", ") || "no folder"}) and ${contrast.measured} contrast pairs in ${Object.keys(contexts).join(", ") || "no context"}`;
+  const verdict = suppressed.length > 0 ? `${suppressed.length} known problems are suppressed (design-system/suppressions.json), and nothing else fails` : "every file has a contract key, and every pair meets WCAG 2.1 AA";
   if (problems.length > 0) {
     console.error(`${settings.rulesDocument} breaks the rules document's contract:\n${problems.map((problem) => `  - ${problem}`).join("\n")}\ncheck-rules-contract: checked ${checked}`);
     return 1;
   }
-  console.log(`check-rules-contract: ${settings.rulesDocument} holds no values and names ${tokenIds.size > 0 ? "existing" : "no"} tokens; checked ${checked}: every file has a contract key, and every pair meets WCAG 2.1 AA`);
+  console.log(`check-rules-contract: checked ${settings.rulesDocument}, ${checked}; ${verdict}`);
   return 0;
 }
 

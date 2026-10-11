@@ -27,10 +27,17 @@
 // Known limitation: a class list assembled at runtime from non-literal parts,
 // or held in a variable, is checked only where it is literal.
 //
-// Usage in eslint.config.mjs, strict for agents and CI:
-//   import { designSystemPlugin } from "./eslint-token-rules.mjs";
+// Usage in eslint.config.mjs, strict for agents and CI, with the exemptions of
+// design-system/gates.json (artwork, email HTML) turned off where they apply:
+//   import { readFileSync } from "node:fs";
+//   import { designSystemPlugin, exemptionConfigs } from "./eslint-token-rules.mjs";
 //   const strict = process.env.DESIGN_LINT_STRICT === "1" || process.env.CI === "true";
-//   export default [designSystemPlugin.configs[strict ? "strict" : "recommended"]];
+//   const gates = JSON.parse(readFileSync("design-system/gates.json", "utf8"));
+//   export default [designSystemPlugin.configs[strict ? "strict" : "recommended"], ...exemptionConfigs(gates)];
+//
+// Known violations a project has not fixed yet go in ESLint's own bulk
+// suppressions (`eslint --suppress-rule design-system/no-raw-color`), the same
+// ratchet the token checks keep in design-system/suppressions.json.
 //
 // Rule options (both rules share the file settings):
 //   { theme: ["src/styles/theme.generated.css"], variables: ["src/styles/tokens.generated.css"],
@@ -461,6 +468,25 @@ export const noRawColor = {
 };
 
 const rules = { "token-classes": tokenClasses, "no-raw-color": noRawColor };
+
+/** The ESLint rules that hold each rubric rule, for an exemption that names rules. */
+const RULES_FOR = { "tiers/no-literal-in-code": ["token-classes", "no-raw-color"], "tiers/no-primitive-in-code": ["token-classes"] };
+
+/**
+ * Flat-config entries that turn this plugin's rules off for the paths design-system/gates.json exempts: every rule
+ * for an exemption that names none, else the rules that hold the rubric rules it names. ESLint matches the globs
+ * itself, so the exemption reads the same here as in the audit and the checks.
+ * @param {{ exempt?: { paths: string[], rules?: string[], reason: string }[] }} gates the parsed gates config
+ */
+export function exemptionConfigs(gates) {
+  return (Array.isArray(gates?.exempt) ? gates.exempt : [])
+    .map((exemption) => {
+      const names = exemption.rules === undefined ? Object.keys(rules) : [...new Set(exemption.rules.flatMap((rule) => RULES_FOR[rule] ?? []))];
+      if (names.length === 0 || !Array.isArray(exemption.paths)) return undefined;
+      return { name: `design-system/exempt: ${exemption.reason}`, files: exemption.paths, rules: Object.fromEntries(names.map((name) => [`design-system/${name}`, "off"])) };
+    })
+    .filter(Boolean);
+}
 const at = (severity) => Object.fromEntries(Object.keys(rules).map((name) => [`design-system/${name}`, severity]));
 
 /** The rules as an ESLint plugin, with `recommended` (warn, for a person) and `strict` (error, for agents and CI). */

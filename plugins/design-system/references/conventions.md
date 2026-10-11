@@ -25,7 +25,8 @@ DTCG does not prescribe file names or group names: the spec "defines the format 
     checks/                                  the checks harness copies from the plugin (check-tokens.mjs, lib/, …)
     harness/                                 how the gates run, agent-agnostic: run-gates.mjs, gates.mjs, with-node.sh
     audits/                                  the audit reports, named by UTC stamp
-    gates.json                               the gates and the token settings
+    gates.json                               the gates, the token settings, the exemptions and the baseline
+    suppressions.json                        the known problems the token checks do not fail on yet, each with its reason
   <framework path>/theme.css                 the generated output, where the framework reads it (app/, src/styles/)
   .claude/hooks/design-system/               the Claude Code adapters; .claude/settings.json points here
 ```
@@ -72,6 +73,34 @@ The rules document's `components:` contract names, by token id, the roles each c
 **Coverage.** `scripts/check-rules-contract.mjs` lists the component files (`.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro`, without tests and stories) under the code folders, `tokens.code` in `design-system/gates.json` (`["src", "app", "components", "pages"]` by default; a folder that does not exist is skipped, and `[]` turns coverage off). A file reads roles when it names a colour role in a colour utility (`bg-surface`, `hover:text-on-surface/80`) or in a variable (`var(--color-surface)`, `bg-(--color-surface)`). Each such file without a key is a `tiers/components-read-roles` finding. A helper in `.ts` or `.js` (a `cva` variants file) is its component's, not a component of its own.
 
 The rule comes from ispanviza-web, whose next audit computed coverage mechanically from it and named the 15 files with no key, page files included.
+
+## Exemptions
+
+Some files hold colours that are not interface: flag icons, a logo, email HTML, a script that writes a CRM's settings. The rubric does not apply to them, and the decision is recorded once, in `design-system/gates.json`, so no audit asks again:
+
+```json
+"exempt": [
+  { "paths": ["public/flags/**", "components/icons/Logo.tsx"], "reason": "Artwork, drawn in its own colours" },
+  { "paths": ["emails/**"], "rules": ["tiers/no-literal-in-code"], "reason": "Email HTML, which cannot read CSS variables" }
+]
+```
+
+- `paths` are globs from the root; `rules` are rubric rule ids, and an exemption without them covers every rule. Each one has a `reason`.
+- **Who reads them:** the scan leaves exempt files out of the raw colours and lists them; the audit records what it finds there as `out-of-scope`, with the reason (`report.md`, Status); the rules-contract check leaves them out of coverage; the code lint turns its rules off there through `exemptionConfigs(gates)` from the profile's ESLint rules, so ESLint matches the same globs.
+- An exemption is for content that is not interface. A component that is interface and breaks a rule is a finding, or a suppression while it waits for its fix.
+
+## Suppressions
+
+A project with many findings cannot make its gates block on all of them at once, and a gate that does not block teaches people to ignore it. Suppressions let a gate block every new problem while the known ones are worked off: the ratchet. They follow ESLint's bulk suppressions (https://eslint.org/docs/latest/use/suppressions), so the lint and the token checks work the same way:
+
+- `--suppress-all` on `check-tokens.mjs` or `check-rules-contract.mjs` records every current problem of that check in `design-system/suppressions.json`. Each gets an empty reason, which a person fills in; the check names the ones still without one.
+- A suppressed problem does not fail the check. A new one does.
+- A suppressed problem that no longer occurs fails the check until `--prune-suppressions` removes it, so the file only shrinks.
+- A problem is recorded by a key with its rule, its context and its subject, and no value: `tiers/contrast-pairs@light:components.button-whatsapp`. The key stays the same while the ratio moves, so a partial fix does not need a new suppression.
+- The code lint keeps its own, ESLint's `eslint-suppressions.json` (`eslint --suppress-rule design-system/no-raw-color`, `--prune-suppressions`).
+- The audit records a suppressed problem as `accepted`, with its reason (`report.md`, Status). Accepted findings still count: a part with one is `partial`.
+
+Atlassian's token contrast test works the same way: it asserts that the failures equal a checked-in registry of known violations.
 
 ## A project that differs
 

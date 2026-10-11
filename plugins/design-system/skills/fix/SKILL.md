@@ -122,7 +122,8 @@ Present the plan and wait for approval. Use plan mode when the session offers it
 - **Every commit works.** No commit leaves the build, the checks or the rendering broken for a later commit to repair.
 - **No hand edits to outputs.** Never edit a generated output by hand.
 - **Approval for new things.** Never add a dependency, a command or a CI job without approval.
-- **No hiding findings.** Never lower a finding's severity or delete a report to make a result look better.
+- **No hiding findings.** Never lower a finding's severity, delete a report, suppress a problem or add an exemption to make a result look better. Suppressions and exemptions are the person's decisions, each with its reason.
+- **Prune what a batch fixed.** When a fixed problem was suppressed, run the check with `--prune-suppressions` (and ESLint with `--prune-suppressions`) in the same commit, so the suppressions only shrink.
 
 ## Tone
 

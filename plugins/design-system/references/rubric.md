@@ -15,13 +15,15 @@ The rubric has four parts. Each gets one status in the report:
 
 | Status | When |
 |---|---|
-| `met` | The part's foundation exists and no `error` or `warning` finding remains in it |
-| `partial` | The foundation exists, but the part has `error` or `warning` findings |
+| `met` | The part's foundation exists and no `error` or `warning` finding remains in it, open or accepted |
+| `partial` | The foundation exists, but the part has `error` or `warning` findings, open or accepted |
 | `missing` | The foundation is absent: no token files (for `naming`, `tiers`, `format`), or no rules document (for `docs`, exactly when the report has a `docs/rules-document-exists` finding) |
 
 There is no numeric score: a weighted number would be a threshold chosen by eye. The statuses and the findings are the result.
 
 ## What is not a finding
+
+A file that `design-system/gates.json` exempts is out of scope for the rules the exemption names: what is found there is recorded as `out-of-scope` with the exemption's reason, and not counted (`conventions.md`, Exemptions; `report.md`, Status).
 
 Paths and group names other than the canonical ones (`references/conventions.md`) are not a finding: DTCG does not prescribe them. The report records them in `stack.tokenSettings`, and renaming them is an optional `fix` batch.
 

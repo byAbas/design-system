@@ -27,6 +27,7 @@
       }
     },
     "date": { "type": "string", "format": "date" },
+    "baseline": { "type": "string", "description": "The report this project compares against, from design-system/gates.json audits.baseline (references/report.md, Retention)" },
     "stack": {
       "type": "object",
       "required": ["profile"],
@@ -97,6 +98,8 @@
           },
           "previousIds": { "type": "array", "items": { "type": "string", "pattern": "^[a-z]+/[a-z0-9-]+@[^\\s]*#[^\\s]*$" } },
           "requires": { "type": "array", "description": "Findings of this report that must be closed before this one: its fix breaks the project while they are open (references/report.md, Fix order)", "items": { "type": "string", "pattern": "^[a-z]+/[a-z0-9-]+@[^\\s]*#[^\\s]*$" } },
+          "status": { "enum": ["open", "accepted", "out-of-scope"], "description": "open (the default); accepted, a known problem suppressed in design-system/suppressions.json; out-of-scope, in a path design-system/gates.json exempts (references/report.md, Status)" },
+          "statusReason": { "type": "string", "minLength": 1, "description": "Why it is accepted or out of scope: the suppression's or the exemption's reason" },
           "why": { "type": "string", "minLength": 1 },
           "source": { "type": "string" },
           "fix": { "type": "string", "minLength": 1 }

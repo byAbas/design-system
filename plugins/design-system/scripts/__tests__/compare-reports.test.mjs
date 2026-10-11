@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it } from "node:test";
-import { compareReports, renderComparison } from "../compare-reports.mjs";
+import { baselinePaths, compareReports, renderComparison } from "../compare-reports.mjs";
 import { sampleReport } from "./sampleReport.mjs";
 
 describe("compareReports", () => {
@@ -53,5 +56,36 @@ describe("renderComparison", () => {
     assert.match(markdown, /## New \(0\)\n\nNone\./);
     assert.match(markdown, /## Moved \(0\)/);
     assert.match(markdown, /- error: `tiers\/role-aliases-palette@/);
+  });
+});
+
+describe("compareReports: status", () => {
+  it("lists a finding that became accepted or out of scope as such, never as resolved", () => {
+    const before = sampleReport();
+    const after = sampleReport();
+    after.findings[0] = { ...after.findings[0], status: "accepted", statusReason: "Known" };
+    after.findings[1] = { ...after.findings[1], status: "out-of-scope", statusReason: "Email HTML" };
+    const comparison = compareReports(before, after);
+    assert.deepEqual(comparison.resolved, []);
+    assert.deepEqual(comparison.accepted.map((finding) => finding.id), [before.findings[0].id]);
+    assert.deepEqual(comparison.movedOutOfScope.map((finding) => finding.id), [before.findings[1].id]);
+    assert.match(renderComparison(comparison, "a", "b"), /## Moved out of scope \(1\)\n\n- warning: `docs\/rules-hold-no-values@DESIGN\.md#colors`: DESIGN\.md holds colours \(out-of-scope: Email HTML\)/);
+  });
+});
+
+describe("baselinePaths", () => {
+  it("pairs the baseline in gates.json with the newest stamped report", () => {
+    const root = mkdtempSync(join(tmpdir(), "design-system-baseline-"));
+    mkdirSync(join(root, "design-system/audits"), { recursive: true });
+    for (const name of ["2026-09-26T100000Z.json", "2026-09-28T090000Z.json", "2026-09-27T120000Z.json", "2026-09-28T090000Z.md"]) writeFileSync(join(root, "design-system/audits", name), "{}");
+    try {
+      assert.throws(() => baselinePaths(root), /no baseline: set audits\.baseline/);
+      writeFileSync(join(root, "design-system/gates.json"), JSON.stringify({ audits: { baseline: "2026-09-26T100000Z.json" } }));
+      assert.deepEqual(baselinePaths(root), [join(root, "design-system/audits/2026-09-26T100000Z.json"), join(root, "design-system/audits/2026-09-28T090000Z.json")]);
+      writeFileSync(join(root, "design-system/gates.json"), JSON.stringify({ audits: { baseline: "gone.json" } }));
+      assert.throws(() => baselinePaths(root), /the baseline design-system\/audits\/gone\.json does not exist/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

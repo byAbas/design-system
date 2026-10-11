@@ -29,7 +29,7 @@ describe("contractProblems", () => {
   it("refuses values in the front matter and an import of anything but the resolver", () => {
     const front = { ...valid, colors: { primary: "#00aa88" }, imports: "./tokens.json" };
     assert.deepEqual(contractProblems(front, tokenIds, TOKEN_DEFAULTS), [
-      "docs/rules-hold-no-values: the front matter holds `colors:`; values live in the token files it imports, the rules document holds rules",
+      "docs/rules-hold-no-values: `colors:` in the front matter holds values; they live in the token files it imports, the rules document holds rules",
       "docs/rules-reference-existing-tokens: `imports:` is ./tokens.json; it names the tokens at ./design-system/tokens/design.resolver.json",
     ]);
   });

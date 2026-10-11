@@ -82,6 +82,9 @@ Write `design-system/gates.json`, starting from `${CLAUDE_PLUGIN_ROOT}/assets/ha
 - `beforeCommit`: the commands every commit and CI run;
 - `tokens` (the checks): `resolver`, `modifier`, `palette`, `roles`, `typography`, `fonts`, `extensionKey`, `outDir`, `rulesDocument`, `readable` and `code` (the folders whose component files need a contract key). Write every one that differs from the canonical layout, for example the `stack.tokenSettings` the audit recorded. A check that finds an empty roles group fails and names the groups the tokens have. `files` lists plain token files for a project without a resolver. Defaults are in `${CLAUDE_PLUGIN_ROOT}/scripts/lib/project-modules.mjs`.
 
+- `exempt`: paths whose content is not interface (artwork, email HTML), each with its `reason` and, when it covers some rules only, `rules` (`${CLAUDE_PLUGIN_ROOT}/references/conventions.md`, Exemptions). Write one only for a decision the person made;
+- `audits`: `baseline` (the report progress is measured against) and `keep` (`${CLAUDE_PLUGIN_ROOT}/references/report.md`, Retention).
+
 Every path and command in it is the project's own. None is copied from the example.
 
 **A project off the canonical layout.** When `tokens` differs from the canonical layout (other paths or group names), say so in one line of the final report. Name the optional move (`${CLAUDE_PLUGIN_ROOT}/references/conventions.md`, Moving to the canonical layout), and suggest it as its own `fix` batch after the harness commit. Harness records the project's layout and never moves files itself.
@@ -94,7 +97,7 @@ Every path and command in it is the project's own. None is copied from the examp
 |---|---|
 | `scripts/check-tokens.mjs` | DTCG validity (a modifier needs two or more contexts), palette literal, roles alias the palette or are derived, derived values match their rule (lightness, mix or alpha), every context complete, text styles alias the fonts |
 | `scripts/check-rules-contract.mjs` | The rules document's front matter holds no values, imports the resolver, its contract names existing roles, every component file that reads roles has a key (`conventions.md`, The contract), and each component's text meets WCAG 2.1 AA on its background in every context. It reads the front matter with the project's `yaml` |
-| `scripts/lib/dtcg.mjs`, `lib/color.mjs`, `lib/project-modules.mjs` | The DTCG reader, the colour maths and the shared settings the checks use |
+| `scripts/lib/*.mjs`: `dtcg.mjs`, `color.mjs`, `project-modules.mjs`, `glob.mjs`, `suppressions.mjs` | The DTCG reader, the colour maths, the shared settings and exemptions, glob matching, and the suppressions the checks use |
 
 **Profile checks (Terrazzo + Tailwind v4).**
 
@@ -113,6 +116,10 @@ Every path and command in it is the project's own. None is copied from the examp
 Wire the checks into the project's scripts, for example a `tokens:check` script, and into `beforeCommit` and `onSourceEdit`. Add the ESLint rules to the project's flat config in two severities:
 - `recommended` (warn) for a person;
 - `strict` (error) when `DESIGN_LINT_STRICT=1` or `CI=true`.
+
+Spread `exemptionConfigs(gates)` from the ESLint rules after the plugin's config, so the lint skips the exempt paths with the same globs.
+
+**A project with many findings: the ratchet.** When the checks or the lint would fail on problems the project cannot fix in this change, a gate that blocks everything would be turned off. Offer the ratchet instead (`${CLAUDE_PLUGIN_ROOT}/references/conventions.md`, Suppressions): run each check once with `--suppress-all`, and ESLint with `--suppress-rule design-system/token-classes --suppress-rule design-system/no-raw-color`. Ask the person for each suppression's reason and write it in. Then prove that a new violation still fails. The suppressions file is committed; the checks name every suppression without a reason, and every one that no longer occurs.
 
 For a stack without a profile, the token and rules checks work as they are. Write the code lint and the build check for that stack's own tools. Follow the same order: existing rule first, custom rule as a plugin of an existing tool second, a standalone script last.
 
