@@ -140,10 +140,11 @@ Each rule block has five fields:
   - hex and colour functions with literal channels;
   - arbitrary utility values (`text-[13px]`, `bg-[#fff]`);
   - opacity modifiers on role utilities;
-  - the framework's default scale utilities where tokens exist.
+  - the framework's default scale utilities where tokens exist;
+  - in stylesheets: a raw colour in any declaration, a hand-written custom property's included (`--brand: #d4a017`), and the classes of `@apply`.
 - **Why:** principles 1 and 4.
-- **Check (core):** count raw colours (the scan's `rawColors`). Read the files with the most matches and the component styles.
-- **Gate:** code lint (profile).
+- **Check (core):** count raw colours (the scan's `rawColors`, stylesheets included). Read the files with the most matches and the component styles.
+- **Gate:** code lint (profile), for scripts and stylesheets. The generated outputs are not linted: they are the tokens' own values.
 - **Default:** `error`.
 
 ### `tiers/components-read-roles`

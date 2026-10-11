@@ -78,7 +78,7 @@ Write `design-system/gates.json`, starting from `${CLAUDE_PLUGIN_ROOT}/assets/ha
 - `sources`: globs of the files whose edit runs `onSourceEdit` (tokens, rules document, build template and config);
 - `onSourceEdit`: commands run after such an edit;
 - `build`: the one command that rewrites the generated outputs (for example `npm run -s tokens:build`). The message that stops an edit to an output names it. It is never a check: a `--check` command rewrites nothing, and an agent told to rebuild with it runs it and edits the output again. Without a build command, leave it out, and the message names none;
-- `lint`: `files` and `command`, for the linter an edited file gets, and `strictEnv`, the variables that make its rules errors;
+- `lint`: `files` and `command`, for the linter an edited file gets, and `strictEnv`, the variables that make its rules errors. A list of them when scripts and stylesheets have different linters (ESLint and Stylelint);
 - `beforeCommit`: the commands every commit and CI run;
 - `tokens` (the checks): `resolver`, `modifier`, `palette`, `roles`, `typography`, `fonts`, `extensionKey`, `outDir`, `rulesDocument`, `readable` and `code` (the folders whose component files need a contract key). Write every one that differs from the canonical layout, for example the `stack.tokenSettings` the audit recorded. A check that finds an empty roles group fails and names the groups the tokens have. `files` lists plain token files for a project without a resolver. Defaults are in `${CLAUDE_PLUGIN_ROOT}/scripts/lib/project-modules.mjs`.
 
@@ -104,7 +104,8 @@ Every path and command in it is the project's own. None is copied from the examp
 | File | Rules |
 |---|---|
 | `scripts/profiles/terrazzo-tailwind-v4/check-generated.mjs` | Generated outputs match a fresh build, and none is empty |
-| `assets/harness/terrazzo-tailwind-v4/eslint-token-rules.mjs` | `token-classes` and `no-raw-color` |
+| `assets/harness/terrazzo-tailwind-v4/eslint-token-rules.mjs` | `token-classes` and `no-raw-color`, for scripts and, through ESLint's CSS language, stylesheets |
+| `assets/harness/terrazzo-tailwind-v4/stylelint-token-rules.mjs` | `no-raw-color` for a project whose stylesheets Stylelint lints. It imports its judgement from `eslint-token-rules.mjs`, so copy both |
 | `assets/harness/terrazzo-tailwind-v4/terrazzo.config.ts`, `theme.template.css` | The build, when the project has none |
 
 **When you adapt a copied file:**
@@ -119,7 +120,14 @@ Wire the checks into the project's scripts, for example a `tokens:check` script,
 
 Spread `exemptionConfigs(gates)` from the ESLint rules after the plugin's config, so the lint skips the exempt paths with the same globs.
 
-**A project with many findings: the ratchet.** When the checks or the lint would fail on problems the project cannot fix in this change, a gate that blocks everything would be turned off. Offer the ratchet instead (`${CLAUDE_PLUGIN_ROOT}/references/conventions.md`, Suppressions): run each check once with `--suppress-all`, and ESLint with `--suppress-rule design-system/token-classes --suppress-rule design-system/no-raw-color`. Ask the person for each suppression's reason and write it in. Then prove that a new violation still fails. The suppressions file is committed; the checks name every suppression without a reason, and every one that no longer occurs.
+**Stylesheets.** A raw colour in a stylesheet is the same finding as in a component, so the lint covers both. Extend the linter the project already runs, never a second one for the same files:
+- **ESLint, and no stylesheet linter:** ESLint's CSS language, `@eslint/css`, with `tailwind-csstree` for Tailwind's syntax (`@theme`, `@apply`), and the plugin's rules on `**/*.css`. The usage is in the header of `eslint-token-rules.mjs`. `token-classes` also checks the classes of `@apply`.
+- **Stylelint already lints the stylesheets:** `stylelint-token-rules.mjs`, with `eslint-token-rules.mjs` beside it. Add a second `lint` entry for `*.css` with Stylelint's command.
+- **Neither:** ask before adding one; Stylelint is the usual choice for a project with no ESLint.
+
+In every case, leave the generated outputs out (`ignores` or `ignoreFiles` from `generated`), and add `css` to `lint.files`.
+
+**A project with many findings: the ratchet.** When the checks or the lint would fail on problems the project cannot fix in this change, a gate that blocks everything would be turned off. Offer the ratchet instead (`${CLAUDE_PLUGIN_ROOT}/references/conventions.md`, Suppressions): run each check once with `--suppress-all`, ESLint with `--suppress-rule design-system/token-classes --suppress-rule design-system/no-raw-color`, and Stylelint, when it lints the stylesheets, with `--suppress=design-system/no-raw-color`. Stylelint's suppressions are experimental in 17.15 and do not fail on one that no longer occurs; after a fix, run `--suppress` again, which rewrites the counts down. Ask the person for each suppression's reason and write it in. Then prove that a new violation still fails. The suppressions file is committed; the checks name every suppression without a reason, and every one that no longer occurs.
 
 For a stack without a profile, the token and rules checks work as they are. Write the code lint and the build check for that stack's own tools. Follow the same order: existing rule first, custom rule as a plugin of an existing tool second, a standalone script last.
 

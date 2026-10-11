@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { NAMED_COLORS, declaredVariables, exemptionConfigs, hasRawColor, isColorProperty, judgeClass, namedColorAt, namedColorIn, namedColorInDeclarations, parseClass, parseThemeTokens } from "../eslint-token-rules.mjs";
+import { NAMED_COLORS, cssDeclarationProblem, declaredVariables, exemptionConfigs, hasRawColor, isColorProperty, judgeClass, namedColorAt, namedColorIn, namedColorInDeclarations, parseClass, parseThemeTokens } from "../eslint-token-rules.mjs";
 
 const theme = parseThemeTokens(`
 @theme { --color-*: initial; }
@@ -123,5 +123,21 @@ describe("exemptionConfigs", () => {
       { name: "design-system/exempt: Email HTML", files: ["emails/**"], rules: { "design-system/token-classes": "off" } },
     ]);
     assert.deepEqual(exemptionConfigs({}), []);
+  });
+});
+
+describe("cssDeclarationProblem", () => {
+  it("reports what a stylesheet states that the tokens do not know", () => {
+    assert.deepEqual(cssDeclarationProblem("border", "1px solid rgb(0 0 0 / 10%)"), { messageId: "rawColor" });
+    assert.deepEqual(cssDeclarationProblem("--color-brand", " #d4a017"), { messageId: "rawColor" });
+    assert.deepEqual(cssDeclarationProblem("--local", " oklch(0.5 0.1 200)"), { messageId: "rawColor" });
+    assert.deepEqual(cssDeclarationProblem("color", "red"), { messageId: "namedColor", data: { name: "red" } });
+    assert.deepEqual(cssDeclarationProblem("--accent", " RebeccaPurple"), { messageId: "namedColor", data: { name: "rebeccapurple" } });
+  });
+
+  it("passes what reads the tokens, the keywords, and a custom property whose words only contain a colour's name", () => {
+    for (const [property, value] of [["background", "var(--color-surface)"], ["color", "currentColor"], ["fill", "transparent"], ["--color-*", " initial"], ["--font", " Red Hat Display"], ["font-family", "Red Hat Display"], ["border", "1px solid var(--color-outline)"]]) {
+      assert.equal(cssDeclarationProblem(property, value), undefined, `${property}: ${value}`);
+    }
   });
 });

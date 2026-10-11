@@ -13,10 +13,6 @@ What the plugin should do next, and why. Each item names the project run that sh
 
 - **Visual verification for migrations.** The ispanviza-web batch captured computed styles (colour, background, border, shadow, font size, line height, weight, max-width) of every element on every route at two widths, plus screenshots and interaction states, before and after, and stopped on any difference. Make this the default proof for a batch that must not change rendering, run from the session scratchpad, never added to the project. Diff the pre-rendered HTML too: on ispanviza-web every screenshot was identical while two routes lost a CTA link from the server HTML (the browser added it back), which only the HTML diff showed. And check the base build on its own: a comparison of two builds cannot see a fault both share.
 
-## Harness
-
-- **CSS lint by default:** extend the project's existing linter (`@eslint/css` with ESLint; Stylelint where the project already uses it; else Stylelint), with the same colour functions as `hasRawColor`. (cv-screener)
-
 ## Profile: terrazzo-tailwind-v4 (Terrazzo 2.7.1)
 
 Found migrating hand-written CSS with a sets-only resolver (one context). cv-screener has a `theme` modifier, so none of these showed there. (ispanviza-web)

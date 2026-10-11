@@ -4,7 +4,7 @@
   "onSourceEdit": ["npm run -s tokens:check"],
   "build": "npm run -s tokens:build",
   "lint": {
-    "files": ["src/**/*.{ts,tsx,js,jsx}"],
+    "files": ["src/**/*.{ts,tsx,js,jsx,css}"],
     "command": "npx eslint --no-warn-ignored",
     "strictEnv": { "DESIGN_LINT_STRICT": "1" }
   },
