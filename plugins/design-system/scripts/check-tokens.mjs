@@ -11,7 +11,7 @@
 //   not to another role and not a literal, or it is derived;
 // - tiers/derived-rule-recorded: a derived role records its rule under the
 //   project's `$extensions` key, and its value is what the rule gives in that
-//   context (lib/color.mjs);
+//   context (lib/color.mjs), its alpha included;
 // - format/themes-complete: every context defines the same roles, derived the
 //   same way;
 // - tiers/styles-alias-foundation: a text style's family and weight alias the
@@ -33,22 +33,25 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { colorHex, derivedHex } from "./lib/color.mjs";
+import { colorHex, derivedHex, readColor } from "./lib/color.mjs";
 import { loadResolver, loadTokenFiles, modifiersOf, resolveTokens } from "./lib/dtcg.mjs";
 import { flagSettings, readConfig, tokenSettings } from "./lib/project-modules.mjs";
 
 /**
  * The derived rule a token records, undefined when it has none, or a string saying why the rule is malformed.
- * Two kinds: `lightness` moves the OKLCH lightness of `from` by `lightness` (−1 to 1), hue and chroma kept;
- * `mix` puts `from` at `weight` (0 to 1) over `over` in sRGB.
- * @returns {{ kind: "lightness", from: string, lightness: number } | { kind: "mix", from: string, weight: number, over: string } | undefined | string}
+ * Three kinds, each reading opaque roles:
+ * - `lightness` moves the OKLCH lightness of `from` by `lightness` (−1 to 1), hue and chroma kept;
+ * - `mix` puts `from` at `weight` (0 to 1) over `over` in sRGB;
+ * - `alpha` is `from` itself at `alpha` (0 to below 1), for a scrim or a faint fill that follows its base.
+ * @returns {{ kind: "lightness", from: string, lightness: number } | { kind: "mix", from: string, weight: number, over: string } | { kind: "alpha", from: string, alpha: number } | undefined | string}
  */
 export function derivedRuleOf(extensions, key) {
   const rule = extensions?.[key]?.derived;
   if (rule === undefined) return undefined;
   if (rule?.kind === "lightness" && typeof rule.from === "string" && typeof rule.lightness === "number" && Math.abs(rule.lightness) <= 1) return rule;
   if (rule?.kind === "mix" && typeof rule.from === "string" && typeof rule.over === "string" && typeof rule.weight === "number" && rule.weight >= 0 && rule.weight <= 1) return rule;
-  return `malformed derived rule ${JSON.stringify(rule)}: expected { kind: "lightness", from, lightness } or { kind: "mix", from, weight, over }`;
+  if (rule?.kind === "alpha" && typeof rule.from === "string" && typeof rule.alpha === "number" && rule.alpha >= 0 && rule.alpha < 1) return rule;
+  return `malformed derived rule ${JSON.stringify(rule)}: expected { kind: "lightness", from, lightness }, { kind: "mix", from, weight, over } or { kind: "alpha", from, alpha }`;
 }
 
 const hexOf = (value) => {
@@ -58,6 +61,15 @@ const hexOf = (value) => {
     return "";
   }
 };
+const alphaOf = (value) => {
+  try {
+    return readColor(value).alpha;
+  } catch {
+    return 1;
+  }
+};
+/** A colour as a reader sees it: its hex, and its alpha when it is translucent. */
+const shown = (hex, alpha) => (alpha < 1 ? `${hex} at alpha ${alpha}` : hex);
 const inGroup = (tokens, group) => Object.entries(tokens).filter(([id]) => id.startsWith(`${group}.`)).map(([id, token]) => [id.slice(group.length + 1), token]);
 
 /**
@@ -87,8 +99,9 @@ export function tierProblems(contexts, settings, derive = derivedHex) {
         continue;
       }
       const hex = hexOf(token.$value);
+      const alpha = alphaOf(token.$value);
       if (rule) {
-        inContext.set(role, { kind: "derived", rule, hex });
+        inContext.set(role, { kind: "derived", rule, hex, alpha });
         continue;
       }
       // What the token points to itself: a role that points to another role hides the palette entry behind it.
@@ -96,7 +109,7 @@ export function tierProblems(contexts, settings, derive = derivedHex) {
       if (!target?.startsWith(`${settings.palette}.`)) {
         problems.push(`tiers/role-aliases-palette: ${context}: ${settings.roles}.${role} ${target ? `points to ${target}` : "is a literal"}; a role points to the palette, or is derived by a recorded rule`);
       }
-      inContext.set(role, { kind: "alias", hex });
+      inContext.set(role, { kind: "alias", hex, alpha });
     }
     for (const [role, entry] of inContext) {
       if (entry.kind !== "derived") continue;
@@ -106,8 +119,14 @@ export function tierProblems(contexts, settings, derive = derivedHex) {
         problems.push(`tiers/derived-rule-recorded: ${context}: ${settings.roles}.${role} derives from ${missing.join(", ")}, which is not a role`);
         continue;
       }
-      const expected = derive(entry.rule, (from) => inContext.get(from).hex);
-      if (expected !== entry.hex) problems.push(`tiers/derived-rule-recorded: ${context}: ${settings.roles}.${role} is ${entry.hex}, but its rule gives ${expected}`);
+      // A rule reads what a role is, and a translucent role is only a colour once it is painted over something.
+      const translucent = reads.filter((from) => inContext.get(from).alpha < 1);
+      if (translucent.length > 0) {
+        problems.push(`tiers/derived-rule-recorded: ${context}: ${settings.roles}.${role} derives from ${translucent.join(", ")}, which is translucent; a rule reads opaque roles`);
+        continue;
+      }
+      const expected = entry.rule.kind === "alpha" ? { hex: inContext.get(entry.rule.from).hex, alpha: entry.rule.alpha } : { hex: derive(entry.rule, (from) => inContext.get(from).hex), alpha: 1 };
+      if (expected.hex !== entry.hex || Math.abs(expected.alpha - entry.alpha) > 1e-9) problems.push(`tiers/derived-rule-recorded: ${context}: ${settings.roles}.${role} is ${shown(entry.hex, entry.alpha)}, but its rule gives ${shown(expected.hex, expected.alpha)}`);
     }
     roles[context] = inContext;
   }

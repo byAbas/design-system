@@ -103,7 +103,8 @@ Each rule block has five fields:
 
 - **What:**
   - a derived role records its rule (`$extensions`) and states it in `$description`;
-  - its stored value equals what the rule gives in each theme.
+  - its stored value equals what the rule gives in each theme, its alpha included;
+  - the rule reads opaque roles. A translucent role (a scrim, a faint fill) is itself derived, by an `alpha` rule from its opaque base, not a literal copy of the base with an alpha.
 - **Why:** principles 5; decisions, Interaction states.
 - **Check (core):**
   - find state and blend roles (hover, pressed, active, overlays, muted text…) that are literals;
@@ -149,6 +150,19 @@ Each rule block has five fields:
 - **Why:** principles 2.
 - **Check (core):** read the contract in the rules document's front matter. Flag palette references, literal values, and missing components that code has.
 - **Gate:** rules-contract check (profile).
+- **Default:** `error`.
+
+### `tiers/contrast-pairs`
+
+- **What:** each pair the contract combines meets WCAG 2.1 AA in every context: a component's `textColor` over its `backgroundColor`, at 4.5:1, or 3:1 when its `typography` is large text (24px, or about 18.67px and bold).
+- **Why:** decisions, Contrast. A role is chosen per context, so a pair that passes in light can fail in dark.
+- **Check (core):**
+  - for each component in the contract, and each context, compute the ratio with the plugin's colour maths (`scripts/lib/color.mjs`);
+  - composite a translucent `textColor` over the background first;
+  - a variant (`button-primary-hover`) takes the properties it does not state from the component its key extends (`button-primary`), as the design.md format reads variants; a disabled variant is exempt (SC 1.4.3);
+  - a translucent `backgroundColor` is not measured, and is named as such: its contrast depends on what it is painted over;
+  - the pairs the rules document approves in prose only are read and checked by hand, and named in the finding as unchecked.
+- **Gate:** rules-contract check (core). The ratio is never rounded up: 4.49:1 fails.
 - **Default:** `error`.
 
 ---

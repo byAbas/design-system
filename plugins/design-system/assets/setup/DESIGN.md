@@ -40,7 +40,7 @@ components: {}
 
 ## Components
 
-<!-- Each component in `components:`: what it is and why it reads the roles it reads. Add a component here and to the front matter before its code. -->
+<!-- Each component in `components:`: what it is and why it reads the roles it reads. Add a component here and to the front matter before its code. Its `backgroundColor`, `textColor` and `typography` are the pair the contrast check measures in every context; a variant (`button-primary-hover`) states only what changes. -->
 
 ## Do's and Don'ts
 

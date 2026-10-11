@@ -30,12 +30,15 @@ describe("derivedRuleOf", () => {
   it("reads both rule kinds under the project's key", () => {
     assert.deepEqual(derivedRuleOf({ k: { derived: hoverRule } }, "k"), hoverRule);
     assert.deepEqual(derivedRuleOf({ k: { derived: { kind: "mix", from: "a", weight: 0.6, over: "b" } } }, "k"), { kind: "mix", from: "a", weight: 0.6, over: "b" });
+    assert.deepEqual(derivedRuleOf({ k: { derived: { kind: "alpha", from: "a", alpha: 0.5 } } }, "k"), { kind: "alpha", from: "a", alpha: 0.5 });
     assert.equal(derivedRuleOf({ other: { derived: hoverRule } }, "k"), undefined);
   });
 
   it("names a malformed rule instead of accepting it", () => {
     assert.match(derivedRuleOf({ k: { derived: { kind: "mix", from: "a", weight: 1.5, over: "b" } } }, "k"), /^malformed derived rule/);
     assert.match(derivedRuleOf({ k: { derived: { kind: "darken", from: "a" } } }, "k"), /^malformed derived rule/);
+    // An alpha of 1 is the base itself, an alias; an alpha above it is no colour.
+    for (const alpha of [1, 1.2, -0.1, "0.5"]) assert.match(derivedRuleOf({ k: { derived: { kind: "alpha", from: "a", alpha } } }, "k"), /^malformed derived rule/, String(alpha));
   });
 });
 
@@ -64,6 +67,33 @@ describe("tierProblems", () => {
     assert.ok(problems.includes("tiers/derived-rule-recorded: light: colors.primary-hover is #123456, but its rule gives #008866"));
     assert.ok(problems.includes("tiers/derived-rule-recorded: dark: colors.primary-hover derives from missing, which is not a role"));
     assert.ok(problems.includes("format/themes-complete: colors.primary-hover is derived differently across light, dark"));
+  });
+
+  it("checks an alpha rule against its base, in each context, alpha included", () => {
+    const scrim = (hex, alpha) => color(hex, { $value: { hex, alpha }, $extensions: { "com.example.design": { derived: { kind: "alpha", from: "on-surface", alpha: 0.5 } } } });
+    const tokens = contexts();
+    for (const [name, onSurface] of [["light", "#111111"], ["dark", "#fcfcfc"]]) tokens[name]["colors.on-surface"] = color(onSurface, { aliasOf: "palette.gray-1", aliasChain: ["palette.gray-1"] });
+    tokens.light["colors.scrim"] = scrim("#111111", 0.5);
+    tokens.dark["colors.scrim"] = scrim("#fcfcfc", 0.5);
+    assert.deepEqual(tierProblems(tokens, settings, derive), []);
+    // The base changed and the scrim was not rebuilt; and an alpha copied by hand drifted.
+    tokens.dark["colors.scrim"] = scrim("#111111", 0.5);
+    tokens.light["colors.scrim"] = scrim("#111111", 0.45);
+    assert.deepEqual(tierProblems(tokens, settings, derive), [
+      "tiers/derived-rule-recorded: light: colors.scrim is #111111 at alpha 0.45, but its rule gives #111111 at alpha 0.5",
+      "tiers/derived-rule-recorded: dark: colors.scrim is #111111 at alpha 0.5, but its rule gives #fcfcfc at alpha 0.5",
+    ]);
+  });
+
+  it("refuses a rule that reads a translucent role, and a lightness or mix value stored with an alpha", () => {
+    const tokens = contexts();
+    tokens.light["colors.primary"] = color("#00aa88", { $value: { hex: "#00aa88", alpha: 0.4 }, aliasOf: "palette.accent-9", aliasChain: ["palette.accent-9"] });
+    tokens.dark["colors.primary-hover"] = derived("#008866", hoverRule);
+    tokens.dark["colors.primary-hover"].$value = { hex: "#008866", alpha: 0.9 };
+    assert.deepEqual(tierProblems(tokens, settings, derive), [
+      "tiers/derived-rule-recorded: light: colors.primary-hover derives from primary, which is translucent; a rule reads opaque roles",
+      "tiers/derived-rule-recorded: dark: colors.primary-hover is #008866 at alpha 0.9, but its rule gives #008866",
+    ]);
   });
 
   it("refuses a role missing from one context", () => {

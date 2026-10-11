@@ -32,7 +32,7 @@ Checked by: `tiers/no-literal-in-code`.
 
 ## 5. Derived values are computed once and stored
 
-A state colour (hover, pressed) or a blend is computed at build time and stored as a static value in each theme. The rule that produced it is recorded on the token (`$extensions`, and in words in `$description`), and a check confirms the value still equals what the rule gives. DTCG has no colour functions, and the major systems ship these states as static tokens (`decisions.md`, Interaction states).
+A state colour (hover, pressed), a blend or a translucent colour is computed at build time and stored as a static value in each theme. The rule that produced it is recorded on the token (`$extensions`, and in words in `$description`), and a check confirms the value still equals what the rule gives. DTCG has no colour functions, and the major systems ship these states as static tokens (`decisions.md`, Interaction states).
 
 Checked by: `tiers/derived-rule-recorded`.
 

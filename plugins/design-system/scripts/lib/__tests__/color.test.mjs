@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { colorHex, derivedHex, hexToRgb, oklabToOklch, readColor, rgbToHex, srgbToOklab } from "../color.mjs";
+import { colorHex, compositeOver, contrastRatio, derivedHex, hexToRgb, oklabToOklch, readColor, relativeLuminance, rgbToHex, srgbToOklab } from "../color.mjs";
 
 // color-reference.json holds 240 rules and the hex lightningcss 1.32.0 gives for each
 // (transform() with targets { chrome: 80 << 16 }, which resolves oklch(from …) and color-mix to sRGB).
@@ -50,5 +50,31 @@ describe("readColor and colorHex", () => {
 
   it("refuses a colour it cannot read", () => {
     assert.throws(() => readColor({ colorSpace: "hsl", components: [0, 0, 0] }), /cannot read colour/);
+  });
+});
+
+describe("WCAG 2.x contrast", () => {
+  it("gives the reference values: 21:1 for black on white, 1:1 for a colour on itself, the same either way round", () => {
+    assert.equal(contrastRatio("#000000", "#ffffff"), 21);
+    assert.equal(contrastRatio("#3366cc", "#3366cc"), 1);
+    assert.equal(contrastRatio("#ffffff", "#000000"), contrastRatio("#000000", "#ffffff"));
+  });
+
+  it("puts #767676 on white just above 4.5:1 and #777777 just below, the boundary WCAG's examples use", () => {
+    assert.ok(contrastRatio("#767676", "#ffffff") >= 4.5);
+    assert.ok(contrastRatio("#777777", "#ffffff") < 4.5);
+  });
+
+  it("weights the channels 0.2126, 0.7152 and 0.0722, and linearises from 0.04045", () => {
+    assert.ok(Math.abs(relativeLuminance([1, 0, 0]) - 0.2126) < 1e-12);
+    assert.ok(Math.abs(relativeLuminance([0, 1, 0]) - 0.7152) < 1e-12);
+    assert.ok(Math.abs(relativeLuminance([0, 0, 1]) - 0.0722) < 1e-12);
+    assert.ok(Math.abs(relativeLuminance([0.04045, 0.04045, 0.04045]) - 0.04045 / 12.92) < 1e-15);
+  });
+
+  it("composites a translucent foreground over the background before measuring it", () => {
+    assert.deepEqual(compositeOver([0, 0, 0], 0.5, [1, 1, 1]), [0.5, 0.5, 0.5]);
+    assert.ok(Math.abs(contrastRatio("#000000", "#ffffff", 0.5) - 3.98) < 0.01);
+    assert.equal(contrastRatio("#000000", "#ffffff", 0), 1);
   });
 });

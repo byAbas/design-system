@@ -19,6 +19,7 @@ Also check whether a newer version than 2025.10 exists (https://www.designtokens
 
 - 1.4.3 Contrast (Minimum): https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html
 - 1.4.11 Non-text Contrast: https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html
+- G18, the relative luminance and contrast formula: https://www.w3.org/WAI/WCAG22/Techniques/general/G18
 
 ## Tools
 

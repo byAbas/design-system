@@ -92,8 +92,8 @@ Every path and command in it is the project's own. None is copied from the examp
 
 | File | Rules |
 |---|---|
-| `scripts/check-tokens.mjs` | DTCG validity (a modifier needs two or more contexts), palette literal, roles alias the palette or are derived, derived values match their rule, every context complete, text styles alias the fonts |
-| `scripts/check-rules-contract.mjs` | The rules document's front matter holds no values, imports the resolver, and its contract names existing roles. It reads the front matter with the project's `yaml` |
+| `scripts/check-tokens.mjs` | DTCG validity (a modifier needs two or more contexts), palette literal, roles alias the palette or are derived, derived values match their rule (lightness, mix or alpha), every context complete, text styles alias the fonts |
+| `scripts/check-rules-contract.mjs` | The rules document's front matter holds no values, imports the resolver, its contract names existing roles, and each component's text meets WCAG 2.1 AA on its background in every context. It reads the front matter with the project's `yaml` |
 | `scripts/lib/dtcg.mjs`, `lib/color.mjs`, `lib/project-modules.mjs` | The DTCG reader, the colour maths and the shared settings the checks use |
 
 **Profile checks (Terrazzo + Tailwind v4).**
