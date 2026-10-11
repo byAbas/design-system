@@ -25,7 +25,7 @@ The audit never deletes an older report, because comparing two reports is how a 
 | `project` | `{ "name", "root", "commit", "dirty" }`; `commit` is the short hash when the project is a git repository, and `dirty` is true when `git status --porcelain` lists changes, so the report says it audited uncommitted work |
 | `date` | ISO date of the audit |
 | `baseline` | Optional: the report this project compares against, `audits.baseline` in `design-system/gates.json` (Retention) |
-| `stack` | `profile` (`"terrazzo-tailwind-v4"` or `null`), `targetProfile` (when `profile` is `null` and the recommended gates use a profile's assets, that profile, so the header does not say "none" beside Terrazzo gates), `tokenFormat`, `styling`, `rulesDocument`, `tokenSettings` (the resolver path and group names the checks used, when they differ from `conventions.md`), and `versions`: per tool, `installed` and `latest`. Every listed package has its `latest` from the registry (`sources.md`); `render-report.mjs` warns about one without it |
+| `stack` | `profile` (`"terrazzo-tailwind-v4"` or `null`), `targetProfile` (when `profile` is `null` and the recommended gates use a profile's assets, that profile, so the header does not say "none" beside Terrazzo gates), `tokenFormat`, `styling`, `rulesDocument`, `tokenSettings` (the settings the checks used where they differ from `conventions.md`, keyed by the setting names of `design-system/gates.json` `tokens`: `resolver`, `roles`, `palette`, `extensionKey` …, so harness copies it as it is; `render-report.mjs` warns about any other key), and `versions`: per tool, `installed`, `latest` and `peers`. Every listed package has its `latest` from the registry (`sources.md`); `render-report.mjs` warns about one without it. `peers` is copied from the scan: the installed packages that hold this one to a peer range. `render-report.mjs` marks a `latest` that one of those ranges leaves out as blocked, naming the package and its range, since it cannot be installed yet |
 | `parts` | The four parts (`naming`, `tiers`, `format`, `docs`), each with `status` and a one-sentence `summary` |
 | `findings` | See below |
 | `gates` | See below |
@@ -89,7 +89,8 @@ A finding without `status` is open. `render-report.mjs` refuses an accepted or o
   - `custom`: a rule to write.
   
   Recommend `existing` first (principles 9).
-- **`runs`:** any of these:
+- **`kind`:** `check` (the default), a check that runs somewhere; or `state`, a configuration that the build or a file holds, such as a theme's palette reset (`--color-*: initial`). A state has no `runs`, and `tool` names what holds it; the table says "a state, held by the tool".
+- **`runs`:** where a check runs, any of these:
   - `agent-edit`: a hook after an agent's edit;
   - `agent-commit`: a hook before an agent's commit;
   - `commit`: a git pre-commit hook;

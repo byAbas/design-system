@@ -64,7 +64,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/check-tokens.mjs --root .
 ```
 
 - **Other paths or group names.** When the scan found the resolver elsewhere, pass it: `--resolver <path>`. When the check says a group is empty and lists the groups the tokens have, read the token files, choose the matching groups yourself, and run it again with them (`--roles color`, `--palette …`). Never guess a group from its name alone.
-- **Record the settings.** Put the names you passed in the report's `stack.tokenSettings`. A project's own names are not a finding (conventions.md).
+- **Record the settings.** Put what you passed in the report's `stack.tokenSettings`, under the setting names of `design-system/gates.json` `tokens` (`roles`, `resolver`, `extensionKey` …), not the flags' names, so harness copies it as it is. A project's own names are not a finding (conventions.md). A derived rule recorded under another `$extensions` key needs `--extension-key <key>`.
 - **Read the result.** Its lines, each prefixed with a rule id, are evidence for the `format` and `tiers` findings. Its last line says what it checked: a pass that checked no roles is not a pass. A non-zero exit means it found problems; that is a result, not a failure of the audit.
 
 ### The project's existing checks

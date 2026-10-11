@@ -99,15 +99,16 @@ Present the plan and wait for approval. Use plan mode when the session offers it
 
 ## Step 4: Verify
 
-1. **Re-audit.** Run `/design-system:audit`, or for a small batch re-check only the rules the batch touched, and write a new report file.
-2. **Compare the reports:**
+1. **A fresh build first.** Rebuild the generated outputs with the project's build (`build` in `design-system/gates.json`), and confirm the staleness check passes. A report taken against outputs the last build left behind measures that build, not the change.
+2. **Re-audit.** Run `/design-system:audit`, or for a small batch re-check only the rules the batch touched, and write a new report file.
+3. **Compare the reports:**
 
    ```bash
    node ${CLAUDE_PLUGIN_ROOT}/scripts/compare-reports.mjs <before.json> <after.json>
    ```
 
    It lists the findings that were resolved, are new, or are unchanged. It exits 1 when the new report has a new `error` finding.
-3. **Report the outcome.** Say which finding ids closed and which did not, and why. A finding counts as closed only when the new report no longer has it.
+4. **Report the outcome.** Say which finding ids closed and which did not, and why. A finding counts as closed only when the new report no longer has it.
 
 ## Step 5: Hand back
 

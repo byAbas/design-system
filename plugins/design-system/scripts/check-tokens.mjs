@@ -19,6 +19,7 @@
 //
 //   node check-tokens.mjs [--root <project>] [--resolver <path>] [--roles <group>]
 //                         [--palette <group>] [--typography <group>] [--fonts <group>]
+//                         [--modifier <name>] [--extension-key <key>]
 //                         [--suppress-all] [--prune-suppressions]
 //   exit 1 and one line per problem; the last line says what was checked
 //

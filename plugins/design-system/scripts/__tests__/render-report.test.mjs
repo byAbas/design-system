@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { renderReport, reportProblems, reportWarnings } from "../render-report.mjs";
+import { blockers, renderReport, reportProblems, reportWarnings } from "../render-report.mjs";
 import { sampleReport } from "./sampleReport.mjs";
 
 describe("reportProblems", () => {
@@ -187,5 +187,41 @@ describe("finding status", () => {
     assert.match(markdown, /Findings: 1 error, 0 warning, 0 info \(1 of them accepted; 1 out of scope, not counted\)\./);
     assert.match(markdown, /- Status: accepted: Brand green, redesign in Q1/);
     assert.match(markdown, /- Status: out-of-scope: Email HTML/);
+  });
+});
+
+describe("versions: a latest release that cannot be installed yet", () => {
+  const eslint = { installed: "9.39.1", latest: "10.12.0", peers: [{ package: "eslint-plugin-react", version: "7.37.5", range: "^3 || ^4 || ^5 || ^6 || ^7 || ^8 || ^9.7" }, { package: "eslint-config-next", version: "16.4.0", range: ">=9.0.0" }] };
+
+  it("names each installed package whose peer range leaves the latest out", () => {
+    assert.deepEqual(blockers(eslint).map((peer) => peer.package), ["eslint-plugin-react"]);
+    assert.deepEqual(blockers({ ...eslint, latest: "9.40.0" }), []);
+    assert.deepEqual(blockers({ installed: "9.39.1" }), []);
+  });
+
+  it("says so in the versions table", () => {
+    const report = sampleReport();
+    report.stack.versions.eslint = eslint;
+    assert.match(renderReport(report), /\| eslint \| 9\.39\.1 \| 10\.12\.0, blocked: eslint-plugin-react 7\.37\.5 allows `\^3 \\\|\\\| \^4/);
+  });
+});
+
+describe("gates: a check runs somewhere, a state runs nowhere", () => {
+  it("renders a state with no runs, and refuses runs on a state or none on a check", () => {
+    const report = sampleReport();
+    report.gates.push({ id: "gate/theme-palette-reset", kind: "state", does: "The theme resets Tailwind's default palette", checks: ["tiers/no-primitive-in-code"], tool: { name: "the theme template, held by the build", kind: "existing" }, status: "present" });
+    assert.deepEqual(reportProblems(report), []);
+    assert.match(renderReport(report), /`gate\/theme-palette-reset` .* \| a state, held by the tool \| present \|/);
+    report.gates[1].runs = ["ci"];
+    delete report.gates[0].runs;
+    assert.deepEqual(reportProblems(report), ["gates[0].runs must list agent-edit, agent-commit, commit, ci", "gates[1] is a state, which runs nowhere; leave runs out and name what holds it in tool"]);
+  });
+});
+
+describe("tokenSettings", () => {
+  it("warns about a key that is not a gates.json setting", () => {
+    const report = sampleReport();
+    report.stack.tokenSettings = { roles: "color", resolverPath: "tokens/x.json" };
+    assert.deepEqual(reportWarnings(report).filter((warning) => warning.includes("tokenSettings")), [`stack.tokenSettings.resolverPath is not a setting of design-system/gates.json tokens (${["resolver", "files", "modifier", "palette", "roles", "typography", "fonts", "extensionKey", "outDir", "rulesDocument", "readable", "code"].join(", ")}); use the setting's own name, so harness can copy it as it is`]);
   });
 });

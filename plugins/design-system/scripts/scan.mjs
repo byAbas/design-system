@@ -7,7 +7,8 @@
 // It reports:
 // - the token files, resolvers and build configs;
 // - the rules document and its front matter keys, and other files that may be one;
-// - the styling and token packages, with their installed versions;
+// - the styling and token packages, with their installed versions, and the
+//   peer ranges installed packages hold them to;
 // - the package manager the project declares, and its lock file's format;
 // - where raw colours appear in source, leaving out the paths design-system/gates.json exempts;
 // - which generated outputs and gates exist.
@@ -77,18 +78,66 @@ export function frontMatterKeys(markdown) {
 }
 
 /**
- * True for a Markdown or MDX file whose name suggests it may hold a design system's rules: DESIGN.md, a design
- * system, design tokens or style guide document, a tokens page, or a docs/ file about design. A candidate only:
- * the auditor reads it and decides (references/rubric.md, docs/rules-document-exists).
+ * Why a Markdown or MDX file may hold a design system's rules, or undefined when it may not: it is DESIGN.md, its
+ * name names a design system, design tokens, a style guide or a tokens page, or it is a docs/ file about design. A
+ * candidate only: the auditor reads it and decides (references/rubric.md, docs/rules-document-exists). The reason
+ * travels with the candidate, so the auditor does not work out again why it was picked.
  */
-export function isRulesDocumentCandidate(file) {
-  if (!/\.mdx?$/i.test(file)) return false;
+export function candidateReason(file) {
+  if (!/\.mdx?$/i.test(file)) return undefined;
   // Agent and editor configuration (.agents/, .claude/, …) and static site content (public/) describe design
   // systems in general; they are not this project's rules. DESIGN.md itself is still found anywhere.
-  if (/(^|\/)(\.[^/]+|public)\//.test(file) && basename(file) !== "DESIGN.md") return false;
+  if (/(^|\/)(\.[^/]+|public)\//.test(file) && basename(file) !== "DESIGN.md") return undefined;
   const name = basename(file).toLowerCase();
-  if (name === "design.md" || /design[-_ ]?system|design[-_ ]?tokens|style[-_ ]?guide|^tokens\.mdx?$/.test(name)) return true;
-  return /(^|\/)docs\//.test(file) && name.includes("design");
+  if (name === "design.md") return "named DESIGN.md, the design.md format's file";
+  const named = /design[-_ ]?system|design[-_ ]?tokens|style[-_ ]?guide|^tokens\.mdx?$/.exec(name);
+  if (named) return `its name says ${named[0]}`;
+  return /(^|\/)docs\//.test(file) && name.includes("design") ? "a docs/ file whose name says design" : undefined;
+}
+
+/** True for a file that may hold a design system's rules (candidateReason). */
+export function isRulesDocumentCandidate(file) {
+  return candidateReason(file) !== undefined;
+}
+
+/**
+ * The installed packages that hold each of `names` to a peer range, by name: `{ eslint: [{ package:
+ * "eslint-plugin-react", version: "7.37.5", range: "^3 || … || ^9.7" }] }`. The versions table reads them to say
+ * when the latest release cannot be installed yet. Only the top level of node_modules is read, where npm and
+ * pnpm's hoisting put what the project's tools load.
+ */
+export function peersOf(root, names) {
+  const peers = Object.fromEntries(names.map((name) => [name, []]));
+  const modules = join(root, "node_modules");
+  let entries = [];
+  try {
+    entries = readdirSync(modules, { withFileTypes: true });
+  } catch {
+    return peers;
+  }
+  const packageDirs = entries.flatMap((entry) => {
+    if (!entry.isDirectory() && !entry.isSymbolicLink()) return [];
+    if (!entry.name.startsWith("@")) return [entry.name];
+    try {
+      return readdirSync(join(modules, entry.name)).map((child) => `${entry.name}/${child}`);
+    } catch {
+      return [];
+    }
+  });
+  for (const dir of packageDirs) {
+    let manifest;
+    try {
+      manifest = JSON.parse(readFileSync(join(modules, dir, "package.json"), "utf8"));
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      const range = manifest.peerDependencies?.[name];
+      if (typeof range === "string") peers[name].push({ package: manifest.name ?? dir, version: manifest.version ?? null, range });
+    }
+  }
+  for (const name of names) peers[name].sort((a, b) => a.package.localeCompare(b.package));
+  return peers;
 }
 
 /** The installed version of a package: from its own package.json in node_modules, which a range in the project's package.json is not. */
@@ -161,8 +210,10 @@ export function scanProject(root) {
     pkg = null;
   }
   const declared = { ...(pkg?.dependencies ?? {}), ...(pkg?.devDependencies ?? {}) };
+  const listed = PACKAGES.filter((name) => name in declared);
+  const peers = peersOf(root, listed);
   const dependencies = Object.fromEntries(
-    PACKAGES.filter((name) => name in declared).map((name) => [name, { declared: declared[name], installed: installedVersion(root, name) }]),
+    listed.map((name) => [name, { declared: declared[name], installed: installedVersion(root, name), ...(peers[name].length > 0 ? { peers: peers[name] } : {}) }]),
   );
   const lockfile = ["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb"].find(has) ?? null;
 
@@ -177,7 +228,7 @@ export function scanProject(root) {
 
   const designMd = files.find((file) => basename(file) === "DESIGN.md") ?? null;
   const rulesDocument = designMd ? { path: designMd, frontMatterKeys: frontMatterKeys(readText(root, designMd)) } : null;
-  const rulesDocumentCandidates = files.filter(isRulesDocumentCandidate).map((path) => ({ path, frontMatterKeys: frontMatterKeys(readText(root, path)) }));
+  const rulesDocumentCandidates = files.filter(isRulesDocumentCandidate).map((path) => ({ path, why: candidateReason(path), frontMatterKeys: frontMatterKeys(readText(root, path)) }));
 
   const cssFiles = files.filter((file) => /\.(css|scss|sass|less)$/.test(file));
   const themeBlocks = cssFiles.filter((file) => /@theme\b/.test(readText(root, file)));

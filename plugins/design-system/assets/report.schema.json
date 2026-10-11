@@ -37,7 +37,7 @@
         "tokenFormat": { "type": ["string", "null"] },
         "styling": { "type": "array", "items": { "type": "string" } },
         "rulesDocument": { "type": ["string", "null"] },
-        "tokenSettings": { "type": "object" },
+        "tokenSettings": { "type": "object", "description": "Keyed by the setting names of design-system/gates.json tokens (resolver, roles, palette, extensionKey, …), so harness copies it as it is" },
         "versions": {
           "type": "object",
           "additionalProperties": {
@@ -45,7 +45,12 @@
             "required": ["installed"],
             "properties": {
               "installed": { "type": ["string", "null"] },
-              "latest": { "type": ["string", "null"] }
+              "latest": { "type": ["string", "null"] },
+              "peers": {
+                "type": "array",
+                "description": "The installed packages that hold this one to a peer range, from the scan; a latest release outside one cannot be installed yet",
+                "items": { "type": "object", "required": ["package", "range"], "properties": { "package": { "type": "string" }, "version": { "type": ["string", "null"] }, "range": { "type": "string" } } }
+              }
             }
           }
         }
@@ -110,7 +115,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "does", "checks", "tool", "runs", "status"],
+        "required": ["id", "does", "checks", "tool", "status"],
         "properties": {
           "id": { "type": "string", "pattern": "^gate/[a-z0-9-]+$" },
           "does": { "type": "string", "minLength": 1 },
@@ -125,7 +130,8 @@
               "basis": { "type": "string" }
             }
           },
-          "runs": { "type": "array", "minItems": 1, "items": { "enum": ["agent-edit", "agent-commit", "commit", "ci"] } },
+          "kind": { "enum": ["check", "state"], "description": "check (the default): a check that runs where runs says; state: a configuration the build or a file holds, such as a theme's palette reset, with no runs" },
+          "runs": { "type": "array", "items": { "enum": ["agent-edit", "agent-commit", "commit", "ci"] }, "description": "Where the check runs; required and non-empty for a check, absent for a state" },
           "status": { "enum": ["present", "partial", "missing"] }
         }
       }
