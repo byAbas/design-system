@@ -87,7 +87,17 @@ Before 0.5.0 the roles group was `color`. A project that has it sets `tokens.rol
 - a duration imported in seconds comes back in milliseconds (0.15 s is 150 ms), so durations are compared in seconds;
 - a font family comes back as `$type: "string"`, which DTCG does not have; `figma-propose` names such variables and compares them as text;
 - collections share variable names (`sm`, `md` are a radius and a breakpoint), so a file is matched to its collection by its folder first, and by its names only where no folder says;
-- descriptions come back as they went.
+- a description comes back as it went, but an apostrophe is held HTML-escaped (`recruiter's` is read through the Plugin API as `recruiter&#39;s`); descriptions are not compared.
+
+### Reading Figma through its MCP server
+
+With Figma's official MCP server connected, `figma-propose` reads the designer's file itself (decisions, Figma), read only:
+
+- **One fixed script.** `scripts/figma/read-variables.js` reads every local collection, mode and variable through the Plugin API (`getLocalVariableCollectionsAsync`, `getLocalVariablesAsync`), and returns them in pages of about 16,000 characters: `use_figma` returns at most 20 kB. `figma-read.mjs script --page N` prints it with its page set. `figma-propose`'s hook lets `use_figma` run that script and nothing else, character for character, and refuses input it cannot read.
+- **Checked on the way back.** The script hashes each page in Figma (FNV-1a over its JSON). `figma-read.mjs assemble` refuses a page whose hash differs, a page missing or saved twice, pages of two reads, and a count of variables that differs from the one Figma made.
+- **The same files as Figma's export.** `assemble` writes each collection and mode as `<Collection>/<mode>.tokens.json` in the dialect of Figma's own export, held to the DTCG 2025.10 schema, so `figma-propose.mjs` compares them unchanged: a colour as an srgb object, a number as a number, a string as `$type: "string"`, an alias as its resolved value with `com.figma.aliasData`.
+- **Types:** Figma holds a duration as a `TIMING` variable, in seconds as a float32 (0.15 is 0.15000000596046448); `assemble` writes it as a duration in milliseconds (150 ms), as Figma's export does. A boolean, an `EASING` variable (`figma-export` writes none) and an alias of a library variable are named and not written.
+- **Plans:** reading works on Starter (2026-10-11, cv-screener's file, 118 variables in one call of 7,475 bytes). Starter allows 20 MCP calls a month; `whoami` is exempt.
 
 ## Schema
 
