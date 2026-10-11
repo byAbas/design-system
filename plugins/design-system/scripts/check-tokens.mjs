@@ -19,7 +19,11 @@
 //
 //   node check-tokens.mjs [--root <project>] [--resolver <path>] [--roles <group>]
 //                         [--palette <group>] [--typography <group>] [--fonts <group>]
+//                         [--suppress-all] [--prune-suppressions]
 //   exit 1 and one line per problem; the last line says what was checked
+//
+// A problem recorded in design-system/suppressions.json does not fail it, and
+// a recorded one that no longer occurs does, until pruned (lib/suppressions.mjs).
 //
 // It never passes silently: a roles group that holds no token is a config
 // problem that names the groups the tokens do have, and the summary counts the
@@ -36,6 +40,10 @@ import { pathToFileURL } from "node:url";
 import { colorHex, derivedHex, readColor } from "./lib/color.mjs";
 import { loadResolver, loadTokenFiles, modifiersOf, resolveTokens } from "./lib/dtcg.mjs";
 import { flagSettings, readConfig, tokenSettings } from "./lib/project-modules.mjs";
+import { gateProblems } from "./lib/suppressions.mjs";
+
+/** The rubric rules this check decides, so it prunes only its own suppressions. */
+export const RULES = ["format/dtcg-valid", "tiers/palette-literal", "tiers/role-aliases-palette", "tiers/derived-rule-recorded", "format/themes-complete", "tiers/styles-alias-foundation"];
 
 /**
  * The derived rule a token records, undefined when it has none, or a string saying why the rule is malformed.
@@ -205,14 +213,16 @@ function main(argv) {
   const { contexts, problems: formatProblems } = readProjectTokens(root, settings);
   const names = Object.keys(contexts);
   const groups = names.length > 0 ? groupProblems(contexts, settings) : { problems: [], counts: { palette: 0, roles: 0, styles: 0 } };
-  const problems = [...formatProblems, ...groups.problems, ...(groups.counts.roles > 0 ? tierProblems(contexts, settings) : [])];
+  const found = [...formatProblems, ...groups.problems, ...(groups.counts.roles > 0 ? tierProblems(contexts, settings) : [])];
+  const { failing: problems, suppressed, notes: suppressionNotes } = gateProblems(root, argv, found, { contexts: names, rules: RULES });
+  for (const note of suppressionNotes) console.error(`note: ${note}`);
   const { palette, roles, styles } = groups.counts;
   const checked = `checked ${palette} palette entries (${settings.palette}), ${roles} roles (${settings.roles}) and ${styles} text styles (${settings.typography}) in ${names.join(", ") || "no context"}`;
   if (problems.length > 0) {
     console.error(`The tokens break the rules:\n${problems.map((problem) => `  - ${problem}`).join("\n")}\ncheck-tokens: ${checked}`);
     return 1;
   }
-  console.log(`check-tokens: ${checked}; the format and tier rules hold`);
+  console.log(`check-tokens: ${checked}; ${suppressed.length > 0 ? `${suppressed.length} known problems are suppressed (design-system/suppressions.json), and nothing else fails` : "the format and tier rules hold"}`);
   return 0;
 }
 

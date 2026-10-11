@@ -9,7 +9,7 @@
 // - the rules document and its front matter keys, and other files that may be one;
 // - the styling and token packages, with their installed versions;
 // - the package manager the project declares, and its lock file's format;
-// - where raw colours appear in source;
+// - where raw colours appear in source, leaving out the paths design-system/gates.json exempts;
 // - which generated outputs and gates exist.
 //
 // It changes nothing and reads nothing outside the root. It decides nothing
@@ -19,6 +19,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
+import { exemptionsOf, isExempt, readConfig } from "./lib/project-modules.mjs";
 
 /** Folders never walked: dependencies, build output, version control, earlier audits. */
 const SKIPPED = new Set(["node_modules", ".git", ".next", ".nuxt", ".svelte-kit", ".turbo", ".vercel", ".output", "dist", "build", "out", "coverage", "storybook-static", "design-tokens-audit"]);
@@ -182,11 +183,16 @@ export function scanProject(root) {
   const themeBlocks = cssFiles.filter((file) => /@theme\b/.test(readText(root, file)));
   const generated = files.filter((file) => /\.generated\.[a-z]+$/.test(file) || /(^|\/)tokens\.generated\//.test(file));
 
+  // An exempt file holds artwork or non-UI output by a recorded decision, so its colours are not counted again.
+  const { exemptions } = exemptionsOf(readConfig(root).config);
   const perFile = [];
+  const exempted = [];
   for (const file of files) {
     if (!SOURCE.test(file) || generated.includes(file) || /(^|\/)(__tests__|__mocks__)\//.test(file) || /\.(test|spec|stories)\.[cm]?[jt]sx?$/.test(file)) continue;
     const count = countRawColors(readText(root, file));
-    if (count > 0) perFile.push({ file, count });
+    if (count === 0) continue;
+    if (isExempt(file, "tiers/no-literal-in-code", exemptions)) exempted.push(file);
+    else perFile.push({ file, count });
   }
   perFile.sort((a, b) => b.count - a.count || a.file.localeCompare(b.file));
 
@@ -223,7 +229,7 @@ export function scanProject(root) {
     rulesDocument,
     rulesDocumentCandidates,
     styles: { cssFiles: cssFiles.length, tailwindThemeFiles: themeBlocks, generated },
-    rawColors: { total: perFile.reduce((sum, entry) => sum + entry.count, 0), files: perFile.length, top: perFile.slice(0, 20) },
+    rawColors: { total: perFile.reduce((sum, entry) => sum + entry.count, 0), files: perFile.length, top: perFile.slice(0, 20), exempted },
     gates,
   };
 }

@@ -6,10 +6,6 @@ What the plugin should do next, and why. Each item names the project run that sh
 
 - **Versions table: say when the latest cannot be installed.** It listed ESLint 10.11.0 as latest, but `eslint-config-next` 16 depends on `eslint-plugin-react`, `-import` and `-jsx-a11y`, whose peer ranges stop at ESLint 9. Read the peer ranges of the installed dependents and mark a latest version as blocked, naming the blocker. (ispanviza-web, cv-screener)
 - **"Runs in" needs one meaning.** `gate/theme-palette-reset` says "Runs in: ci", but it is a state of the theme file, enforced by the build. Define the column (where a check runs) and use a separate kind for configuration states.
-- **Exemptions have a home.** Flag icons, a logo SVG, email HTML and a CRM setup script hold literal colours that are artwork or non-UI output. The auditor left them out and asked, which was right, but there is nowhere to record the decision, so the next audit asks again. Record exemptions in `design-system/gates.json` (paths and reason), read by the audit and the code lint. (ispanviza-web)
-- **Accepted and out-of-scope findings** in the report, and "moved out of scope" in `compare-reports`.
-- **Baseline and ratchet gates**, so a project with many findings can gate on "no new ones".
-- **Audit retention:** keep the newest reports, and say which one is the baseline.
 - **Scan candidates carry evidence**, so the auditor does not re-derive why a file was picked.
 - **A token without `$type`** is valid DTCG when its type is inherited or resolved; the check should accept it.
 - **Derived rules for dimensions**, not only colours.

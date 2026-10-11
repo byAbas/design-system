@@ -82,9 +82,23 @@ describe("scanProject", () => {
   });
 
   it("counts raw colours in source, skipping tests and generated outputs", () => {
-    assert.deepEqual(scan.rawColors, { total: 3, files: 1, top: [{ file: "src/components/Card.tsx", count: 3 }] });
+    assert.deepEqual(scan.rawColors, { total: 3, files: 1, top: [{ file: "src/components/Card.tsx", count: 3 }], exempted: [] });
     assert.deepEqual(scan.styles.generated, ["src/styles/theme.generated.css"]);
     assert.equal(scan.styles.tailwindThemeFiles.length, 2);
+  });
+
+  it("leaves the files gates.json exempts out of the count, and lists them", () => {
+    const exempt = writeProjectFixture({
+      "design-system/gates.json": JSON.stringify({ exempt: [{ paths: ["src/flags/**"], reason: "Flag artwork" }] }),
+      "src/flags/Es.tsx": 'export const Es = () => <svg fill="#aa151b" />;\n',
+    });
+    try {
+      const { rawColors } = scanProject(exempt.root);
+      assert.equal(rawColors.files, 1);
+      assert.deepEqual(rawColors.exempted, ["src/flags/Es.tsx"]);
+    } finally {
+      exempt.cleanup();
+    }
   });
 
   it("keeps agent configuration, static content and earlier audits out", () => {

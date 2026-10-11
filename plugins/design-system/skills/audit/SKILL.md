@@ -92,6 +92,7 @@ If a subagent is not available, do the analysis here, with the auditor's instruc
    - `tool: { name: "design-system", version }`, where `version` comes from `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`;
    - `project: { name, root: ".", commit, dirty }`, with the short commit from `git rev-parse --short HEAD` when the project is a git repository, and `dirty: true` when `git status --porcelain` lists changes;
    - `date`, as today's ISO date.
+   - `baseline`, when `design-system/gates.json` names `audits.baseline`.
 2. Write it to `design-system/audits/<stamp>.json` in the project.
    - The stamp is the audit's UTC time from `date -u +%Y-%m-%dT%H%M%SZ`, for example `2026-09-26T143005Z`, so name order is time order (`${CLAUDE_PLUGIN_ROOT}/references/report.md`, Files).
    - Never overwrite or delete an earlier report.
@@ -104,11 +105,13 @@ If a subagent is not available, do the analysis here, with the auditor's instruc
 
    It refuses an incomplete report and lists what is missing. Fix the JSON and run it again. Never write the Markdown by hand.
 
+4. **Retention** (`${CLAUDE_PLUGIN_ROOT}/references/report.md`, Retention). When `audits.keep` is set and more reports than that exist, list the oldest beyond it, the baseline left out, and offer to delete them. Delete only with approval. When no baseline is set, offer the new report as the baseline.
+
 ## Step 5: Summarise in chat
 
 Print these, and nothing more:
 - the four part statuses;
-- the error, warning and info counts;
+- the error, warning and info counts, with how many are accepted and how many out of scope;
 - the three most important findings;
 - the gates with status `missing`;
 - the paths of the two report files.

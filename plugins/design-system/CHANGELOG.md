@@ -7,6 +7,30 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.11.0
+
+A project with many findings can gate on "no new ones", and the decisions about what is out of scope are recorded once.
+
+- **Exemptions have a home.** `exempt` in `design-system/gates.json` names paths whose content is not interface, each with its reason and optionally the rules it covers (`references/conventions.md`, Exemptions). On ispanviza-web, flag icons, a logo SVG, email HTML and a CRM setup script held literal colours. The auditor rightly asked about them, but there was nowhere to record the answer, so the next audit asked again. Now:
+  - the scan leaves exempt files out of the raw colours, and lists them;
+  - the audit records what it finds there as `out-of-scope`, with the reason;
+  - the rules-contract check leaves them out of coverage;
+  - the code lint turns its rules off there through `exemptionConfigs(gates)`, so ESLint matches the same globs.
+- **Suppressions: the ratchet.** `check-tokens` and `check-rules-contract` take `--suppress-all` and `--prune-suppressions`, as ESLint's bulk suppressions do, and keep the known problems in `design-system/suppressions.json`, each with its reason (`references/conventions.md`, Suppressions).
+  - A suppressed problem does not fail the check, and a new one does.
+  - A suppressed problem that no longer occurs fails the check until it is pruned, so the file only shrinks. ESLint 9.39 does the same: it exits 2 on an unpruned suppression.
+  - A problem is keyed by rule, context and subject, with no value (`tiers/contrast-pairs@light:components.button-whatsapp`), so the key holds while a ratio moves.
+  - An unreadable suppressions file fails the check instead of passing everything.
+  - The lint keeps ESLint's own `eslint-suppressions.json`.
+- **Finding status.** A finding may be `accepted` (suppressed) or `out-of-scope` (exempt), each with its `statusReason`. Accepted findings still count, so a part with one stays `partial`. Out-of-scope findings are listed and not counted. `compare-reports` lists a finding that became accepted or out of scope as such, never as resolved, and fails only on a new open error. The schema stays 1: the fields are optional.
+- **Retention.** `audits.baseline` and `audits.keep` in `design-system/gates.json`. A report names its baseline. `compare-reports --baseline` compares the baseline with the newest report. Past `keep`, the audit offers to delete the oldest reports, only with approval and never the baseline.
+- `scripts/lib/glob.mjs` gives the checks the harness core's glob matching. The two copies exist because the core and the checks are copied into a project separately, and a test holds them to the same behaviour.
+
+**Upgrading from 0.10.x**
+- Copy `scripts/check-tokens.mjs`, `scripts/check-rules-contract.mjs` and `scripts/lib/*.mjs` into `design-system/checks/` again, and the profile's `eslint-token-rules.mjs`, keeping its adapted lines.
+- Add `...exemptionConfigs(gates)` to the ESLint config when the project has exemptions.
+- Nothing is suppressed or exempted for you: both are the person's decisions, each with its reason.
+
 ## 0.10.0
 
 Every component file that reads a role has a contract key, and the check finds the ones that do not.

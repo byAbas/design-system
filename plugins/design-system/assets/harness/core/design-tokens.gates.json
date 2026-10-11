@@ -8,5 +8,7 @@
     "command": "npx eslint --no-warn-ignored",
     "strictEnv": { "DESIGN_LINT_STRICT": "1" }
   },
-  "beforeCommit": ["npm run -s tokens:check", "npx eslint --no-warn-ignored ."]
+  "beforeCommit": ["npm run -s tokens:check", "npx eslint --no-warn-ignored ."],
+  "exempt": [],
+  "audits": { "keep": 10 }
 }

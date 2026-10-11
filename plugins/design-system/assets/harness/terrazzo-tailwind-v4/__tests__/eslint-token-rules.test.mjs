@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { NAMED_COLORS, declaredVariables, hasRawColor, isColorProperty, judgeClass, namedColorAt, namedColorIn, namedColorInDeclarations, parseClass, parseThemeTokens } from "../eslint-token-rules.mjs";
+import { NAMED_COLORS, declaredVariables, exemptionConfigs, hasRawColor, isColorProperty, judgeClass, namedColorAt, namedColorIn, namedColorInDeclarations, parseClass, parseThemeTokens } from "../eslint-token-rules.mjs";
 
 const theme = parseThemeTokens(`
 @theme { --color-*: initial; }
@@ -112,5 +112,16 @@ describe("named colours", () => {
 describe("declaredVariables", () => {
   it("lists declared custom properties, not their uses", () => {
     assert.deepEqual([...declaredVariables(":root{--a:1;--b-c: var(--a);}")], ["a", "b-c"]);
+  });
+});
+
+describe("exemptionConfigs", () => {
+  it("turns every rule off for an exemption that names none, and the rules that hold the named ones otherwise", () => {
+    const gates = { exempt: [{ paths: ["public/flags/**"], reason: "Flag artwork" }, { paths: ["emails/**"], rules: ["tiers/no-primitive-in-code"], reason: "Email HTML" }, { paths: ["docs/**"], rules: ["docs/current"], reason: "Not code" }] };
+    assert.deepEqual(exemptionConfigs(gates), [
+      { name: "design-system/exempt: Flag artwork", files: ["public/flags/**"], rules: { "design-system/token-classes": "off", "design-system/no-raw-color": "off" } },
+      { name: "design-system/exempt: Email HTML", files: ["emails/**"], rules: { "design-system/token-classes": "off" } },
+    ]);
+    assert.deepEqual(exemptionConfigs({}), []);
   });
 });

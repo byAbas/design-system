@@ -66,7 +66,7 @@ The only profile today. It assumes **Tailwind CSS v4**, and builds the Tailwind 
 
 ## The layout it creates
 
-`setup` creates, and the checks default to, one layout: `DESIGN.md` at the root, and everything else under `design-system/`: the DTCG tokens in `tokens/` (foundation, semantic, themes, one resolver), the copied checks in `checks/`, the audit reports in `audits/`, and the settings in `gates.json`. A project with other paths or group names keeps them and states them in `gates.json`; the audit does not count that against it. See `references/conventions.md`.
+`setup` creates, and the checks default to, one layout: `DESIGN.md` at the root, and everything else under `design-system/`: the DTCG tokens in `tokens/` (foundation, semantic, themes, one resolver), the copied checks in `checks/`, the audit reports in `audits/`, the settings in `gates.json` (with the exemptions and the baseline report), and the known problems the gates do not fail on yet in `suppressions.json`. A project with other paths or group names keeps them and states them in `gates.json`; the audit does not count that against it. See `references/conventions.md`.
 
 ## Skills
 

@@ -164,3 +164,28 @@ describe("renderReport", () => {
     assert.ok(reportProblems(old).includes('tool needs name "design-system" and a version'));
   });
 });
+
+describe("finding status", () => {
+  it("needs a reason for an accepted or out-of-scope finding, and a known status", () => {
+    const report = sampleReport();
+    report.findings[0].status = "accepted";
+    report.findings[1].status = "ignored";
+    assert.deepEqual(reportProblems(report), [
+      "findings[0] is accepted, so it needs statusReason: the suppression's or the exemption's reason",
+      'findings[1].status is "ignored", expected one of open, accepted, out-of-scope',
+    ]);
+  });
+
+  it("counts accepted findings, leaves out-of-scope ones out of the count, and shows each status and the baseline", () => {
+    const report = sampleReport();
+    report.baseline = "2026-09-26T100000Z.json";
+    report.findings[0] = { ...report.findings[0], status: "accepted", statusReason: "Brand green, redesign in Q1" };
+    report.findings[1] = { ...report.findings[1], status: "out-of-scope", statusReason: "Email HTML" };
+    assert.deepEqual(reportProblems(report), []);
+    const markdown = renderReport(report);
+    assert.match(markdown, /- Baseline: `2026-09-26T100000Z\.json`/);
+    assert.match(markdown, /Findings: 1 error, 0 warning, 0 info \(1 of them accepted; 1 out of scope, not counted\)\./);
+    assert.match(markdown, /- Status: accepted: Brand green, redesign in Q1/);
+    assert.match(markdown, /- Status: out-of-scope: Email HTML/);
+  });
+});
