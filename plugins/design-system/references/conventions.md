@@ -27,6 +27,7 @@ DTCG does not prescribe file names or group names: the spec "defines the format 
     audits/                                  the audit reports, named by UTC stamp
     gates.json                               the gates, the token settings, the exemptions and the baseline
     suppressions.json                        the known problems the token checks do not fail on yet, each with its reason
+    figma/                                   the tokens as Figma variable files, generated and committed: Figma's import and the baseline
   <framework path>/theme.css                 the generated output, where the framework reads it (app/, src/styles/)
   .claude/hooks/design-system/               the Claude Code adapters; .claude/settings.json points here
 ```
@@ -59,6 +60,38 @@ Each agent's adapters live in that agent's own folder, for Claude Code `.claude/
 The role groups take the names of the rules document's sections. `DESIGN.md` is written in the design.md format, whose front matter has fixed sections: `colors`, `typography`, `rounded`, `spacing` and `components` (https://github.com/google-labs-code/design.md, spec: Schema and Token References). Its `components:` contract cites ids in those sections (`{colors.primary}`, `{typography.label-md}`, `{rounded.full}`), and the contract check requires each to be a token id. So the token groups carry the same names, and an id reads the same in the tokens, the contract and the design.md linter. `palette`, `font` and `shadow` have no design.md section, and keep plain names.
 
 Before 0.5.0 the roles group was `color`. A project that has it sets `tokens.roles` (and `readable`) in `design-system/gates.json`, or moves (below).
+
+## Figma
+
+`figma-export.mjs` writes the tokens as one file per Figma collection and mode, in the DTCG 2025.10 dialect Figma's "Import mode" reads (decisions, Figma):
+
+| Collection | From | Modes | Variables |
+|---|---|---|---|
+| `Palette` | `palette` | one, `default` | colours, never published |
+| `Colors` | `colors` | one per context of the resolver's `theme` modifier | colours; a role that points to the palette stays an alias of it (`com.figma.aliasData`) |
+| `Font` | `font` | one | a family as its first name, a weight as a number |
+| `Spacing`, `Radius` | `spacing`, `rounded` | one | px numbers, a rem as 16px |
+| each other group with numbers (`Containers`, `Motion` …) | that group | one | px dimensions, durations in seconds, numbers |
+
+- A variable's name is its token id without the group, and Figma shows a nested group as `group/name`: `colors.brand.accent` is `brand/accent` in `Colors`.
+- A colour is an sRGB object with its `hex`, an OKLCH or P3 value written as its gamut-mapped sRGB. A token's `$description` is the variable's description.
+- Text styles, shadows, gradients and easing curves are Figma styles, not variables, and dimensions in units other than px and rem have none; the export names them.
+- The files are `design-system/figma/<Collection>/<mode>.tokens.json` (`tokens.figma` moves the folder): Figma names an imported mode after its file, so the mode is `default`, `light` or `dark`. They are generated outputs, gated like the CSS, and committed: they are the baseline `figma-propose.mjs` compares a designer's export against.
+- Every file is checked against the DTCG 2025.10 JSON Schema before it is written (Schema, below); a file the schema refuses is never written.
+
+**What Figma does**, from round trips of ispanviza-web's and cv-screener's tokens (2026-10-11), where its documentation says nothing:
+- **Plans:** Starter holds one mode per collection, Professional ten. A project with light and dark needs Professional or above to keep them as modes of one collection; `figma-export` says so when a collection has more than one mode.
+- each collection exports as a zip holding one file per mode, named after the mode alone (`default.tokens.json`), with the mode's name in the file's `$extensions` as `com.figma.modeName`. Unzip each into its own folder, named after the collection (Finder does): several zips hold a file of the same name;
+- a role that aliases the palette keeps its resolved value, with `com.figma.aliasData` naming the target by name and by Figma's own ids;
+- a dimension comes back as `$type: "number"`, a plain float32 (47.776 is 47.7760009765625), so values are compared to float32's precision and without a unit;
+- a duration imported in seconds comes back in milliseconds (0.15 s is 150 ms), so durations are compared in seconds;
+- a font family comes back as `$type: "string"`, which DTCG does not have; `figma-propose` names such variables and compares them as text;
+- collections share variable names (`sm`, `md` are a radius and a breakpoint), so a file is matched to its collection by its folder first, and by its names only where no folder says;
+- descriptions come back as they went.
+
+## Schema
+
+Every token file the checks read is held to the DTCG 2025.10 JSON Schema the Design Tokens Community Group publishes, copied byte for byte into `scripts/lib/schemas/` with its source and SHA-256, and run by a small draft-07 validator (`scripts/lib/json-schema.mjs`, no dependency). The validator implements exactly the keywords the schema uses and throws on any other, so no rule of the schema is passed over. A value is checked against the type it inherits from its group too (Format §5.2.2): the schema alone checks a value only when its token states a type. `check-tokens.mjs` reports what the schema refuses as `format/dtcg-valid`, with the file and the JSON Pointer.
 
 ## The contract
 

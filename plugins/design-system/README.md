@@ -77,6 +77,8 @@ The only profile today. It assumes **Tailwind CSS v4**, and builds the Tailwind 
 | `/design-system:setup` | Plans a token architecture for a new project, waits for approval, then builds it: resolver, palette from seeds, roles per theme, derived states, `DESIGN.md`, and the build |
 | `/design-system:audit` | Scans the project and checks it against the Token Architecture rubric: naming, tiers, format, docs. Writes `design-system/audits/<UTC stamp>.json`, for example `2026-09-26T143005Z.json`, and its Markdown. Changes nothing else |
 | `/design-system:fix` | Takes finding ids from a report, checks them against the report's fix order, plans each fix in commits that each leave the project working, waits for approval, implements, then re-audits and compares the reports to show what closed |
+| `/design-system:figma-export` | Writes the tokens as the variable files Figma's own "Import mode" reads: palette, roles with a mode per theme, fonts, spacing and radii. Generated, gated and committed, they are the baseline for the way back |
+| `/design-system:figma-propose` | Compares a designer's Figma export with the last export and the tokens now, and proposes what changed in Figma as a fix batch. Never writes the tokens |
 | `/design-system:harness` | Installs the gates a report recommends: token and rules checks, a staleness check, ESLint rules, Claude Code hooks, a git pre-commit hook and CI, all from one `design-system/gates.json`. Proves each gate by making it fail once |
 
 The audit runs its analysis in a read-only subagent, `design-system:token-auditor`.

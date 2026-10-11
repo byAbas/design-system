@@ -7,6 +7,52 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.13.0
+
+Figma, the first way: the tokens go to Figma through Figma's own import, and a designer's changes come back as a proposal.
+
+- **`/design-system:figma-export`** writes the tokens as the DTCG 2025.10 files Figma's native "Import mode" reads, one per collection and mode (`references/conventions.md`, Figma):
+  - `Palette`, never published;
+  - `Colors`, with a mode per theme and each role an alias of its palette entry;
+  - `Font`, `Spacing` and `Radius`;
+  - a collection for each other group with numbers (`Containers`, `Motion` …): px dimensions, durations in seconds, numbers.
+
+  It needs no Figma token and no plan beyond variable modes, where the Variables REST API needs Enterprise. The colour objects match what Figma's own export writes: srgb components as channel/255, an upper-case `hex`. The export names what no Figma variable holds: text styles, shadows, gradients and easing curves, which are Figma styles, and other units. A `--out` folder writes a trial export without moving the baseline. The files are generated outputs, gated with `figma-export.mjs --check`, and committed as the baseline.
+- **`/design-system:figma-propose`** compares a designer's Figma export three ways: with the baseline, and with the tokens now.
+  - Each variable of each mode is a Figma change (a proposal), a token change (Figma is behind), or a conflict (a person decides).
+  - Figma's files are matched to the collections by the variables they share, since Figma names them after the mode.
+  - An alias is read both ways Figma may write it.
+  - It writes nothing. The proposal becomes a fix batch, which keeps the tiers: a re-pointed role stays an alias, and a removal is only ever a question.
+- **The decision** (`references/decisions.md`, Figma): the token files are the one source, as at Meta (Astryx), Adobe Spectrum, GitHub Primer and Atlassian, none of which lets Figma write over its tokens.
+- **Strictly typed against the DTCG 2025.10 schema.** The Design Tokens Community Group's own JSON Schema is copied into `scripts/lib/schemas/` with its source and hash, and run by a new draft-07 validator (`scripts/lib/json-schema.mjs`, no dependency). The validator implements exactly the keywords the schema uses, and throws on any other.
+  - Each value is checked against the type it inherits from its group (Format §5.2.2). The schema alone lets any value through under a group's `$type`.
+  - `figma-export` writes nothing the schema refuses.
+  - `figma-propose` refuses a Figma file the schema refuses, and names Figma's `$type: "string"` variables, which DTCG does not have.
+  - `check-tokens` now holds every token file the resolver reads to the schema, as `format/dtcg-valid`. ispanviza-web, cv-screener and the setup skeletons pass it. A token without `$type` is accepted when it inherits one, as DTCG allows.
+- **Proven on real Figma files** (2026-10-11, Figma Starter): ispanviza-web's six collections and cv-screener's eight (its light theme).
+  - Every collection was imported through Figma's own Import.
+  - Every role was linked to its palette entry by name, with no Figma id needed.
+  - Figma's exports, unzipped, were compared with no change.
+  - The second round trip found a bug before release. Breakpoints and Radius share `sm`, `md`, `lg` and `xl`, and the comparison matched Figma's Breakpoints file to the Radius baseline, so it proposed radii of 1024px. Files are now matched by their collection's folder first, one to one, by names only where no folder says, and left unmatched when the names cannot settle it.
+
+  The round trip found what Figma's documentation does not say, and the code follows it:
+  - Figma names a mode after its file, so the files are `<Collection>/<mode>.tokens.json`;
+  - the export comes as a zip per collection, with `com.figma.modeName` in each file;
+  - a dimension comes back as a plain float32 number, so numbers are compared to float32's precision;
+  - a duration imported in seconds comes back in milliseconds;
+  - a font family comes back as `$type: "string"`;
+  - Starter holds one mode per collection, so a project with several themes needs Professional or above, and `figma-export` says so.
+
+  The way back was proven on a real Figma change too. In cv-screener's Figma file, a designer:
+  - re-pointed `primary` from `mint-9` to `mint-10`;
+  - changed the palette's `gold`;
+  - added a `link` role aliasing `mint-11`;
+  - deleted `outline-variant`.
+
+  `figma-propose` named exactly those four: two changes, one addition and one removal offered as a question. It reported nothing else among the 81 variables, `warning` included, which aliases the changed `gold`: roles are compared by their alias, not their colour. It wrote nothing.
+
+  The way back was also run on a scratch project with two themes (a role re-pointed, a palette colour changed, a variable added and one removed, while a token changed meanwhile), and each change was classified as it should be. Two modes in one Figma collection are not yet proven: the trial plan held one.
+
 ## 0.12.0
 
 Stylesheets are linted like components.

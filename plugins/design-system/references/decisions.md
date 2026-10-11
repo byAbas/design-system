@@ -192,6 +192,34 @@ Sources:
 
 Further reading: Nathan Curtis, "Naming Tokens in Design Systems", https://medium.com/eightshapes-llc/naming-tokens-in-design-systems-9e86c7444676
 
+## Figma
+
+**Choice:** the token files in Git are the one source of values, and Figma reflects them.
+- **Tokens to Figma** (`/design-system:figma-export`): the tokens are written as the DTCG files Figma's own "Import mode" reads, and committed. They are generated outputs, and the baseline for the way back.
+- **Figma to tokens** (`/design-system:figma-propose`): a designer may lead in Figma. Their export is compared three ways, with the baseline and with the tokens now, and what changed in Figma becomes a proposal: a fix batch a person approves and the gates check. Figma never writes over the token files.
+
+**Why:**
+- **Two sources drift** (principles 1). With one, the gates look in one place, the history of every value is in Git, and Figma and the CSS cannot part, since both are built from the same files.
+- **Every large open-source system checked treats the code's tokens as the source and pushes them to Figma:**
+  - **Meta's Astryx** says "Code is king. Figma reflects released code, never the reverse"; an agent rebuilds its Figma library through the Figma MCP on each release.
+  - **Adobe Spectrum** writes its Figma variables through the REST API, and turns a designer's Figma edits into reviewed overrides, never into the tokens directly.
+  - **GitHub Primer** builds a Figma target from its tokens, with each variable's Figma placement in `$extensions`.
+  - **Atlassian** builds Figma synchronisers from its tokens.
+  - None of them lets Figma overwrite the tokens.
+- **Figma's own import, not its API:** Figma imports and exports DTCG 2025.10 variable modes natively, on any plan with modes. Its Variables REST API needs an Enterprise plan, and its MCP server writes only in beta. The native files need no token and no plan beyond modes, so they are the first way, and an agent reading Figma through its MCP server is the next.
+- **A three-way comparison:** with only Figma and the tokens, a difference cannot say which side moved. The last export says it: what differs from it on Figma's side only is a proposal, on the tokens' side only is Figma behind, and on both sides apart is a conflict for a person. A sync that guessed has deleted and overwritten real work: a community MCP once exported another file's variables over a project's tokens and reported success.
+
+**What Figma cannot hold:** a text style, a shadow or a gradient is a Figma style, not a variable, and the native import makes none; colours import as sRGB or HSL only, dimensions as px only. The export names every token it leaves out, and writes OKLCH or P3 colours as their sRGB values and rem as px.
+
+Sources:
+- https://help.figma.com/hc/en-us/articles/15343816063383-Modes-for-variables
+- https://developers.figma.com/docs/rest-api/variables-endpoints/
+- https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/
+- https://github.com/facebook/astryx/blob/main/apps/docsite/src/content/blog/posts/who-needs-a-figma-library.md
+- https://github.com/adobe/spectrum-design-data/tree/main/sdk/plugins/figma
+- https://github.com/primer/primitives/blob/main/scripts/buildFigma.ts
+- https://github.com/southleft/figma-console-mcp/blob/main/CHANGELOG.md
+
 ## Build tool
 
 **Choice:**

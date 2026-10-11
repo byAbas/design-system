@@ -95,9 +95,10 @@ Every path and command in it is the project's own. None is copied from the examp
 
 | File | Rules |
 |---|---|
-| `scripts/check-tokens.mjs` | DTCG validity (a modifier needs two or more contexts), palette literal, roles alias the palette or are derived, derived values match their rule (lightness, mix or alpha), every context complete, text styles alias the fonts |
+| `scripts/check-tokens.mjs` | DTCG validity (every token file against the DTCG 2025.10 JSON Schema, each value against its inherited type; a modifier needs two or more contexts), palette literal, roles alias the palette or are derived, derived values match their rule (lightness, mix or alpha), every context complete, text styles alias the fonts |
 | `scripts/check-rules-contract.mjs` | The rules document's front matter holds no values, imports the resolver, its contract names existing roles, every component file that reads roles has a key (`conventions.md`, The contract), and each component's text meets WCAG 2.1 AA on its background in every context. It reads the front matter with the project's `yaml` |
-| `scripts/lib/*.mjs`: `dtcg.mjs`, `color.mjs`, `project-modules.mjs`, `glob.mjs`, `suppressions.mjs` | The DTCG reader, the colour maths, the shared settings and exemptions, glob matching, and the suppressions the checks use |
+| `scripts/lib/*.mjs` and `scripts/lib/schemas/`: `dtcg.mjs`, `dtcg-schema.mjs`, `json-schema.mjs`, `color.mjs`, `project-modules.mjs`, `glob.mjs`, `suppressions.mjs`, `figma.mjs` | The DTCG reader and the format's own JSON Schema with its validator, the colour maths, the shared settings and exemptions, glob matching, the suppressions, and the Figma mapping the checks use |
+| `scripts/figma-export.mjs` | When the project exports to Figma: `--check` fails when `design-system/figma/` is behind the tokens (`/design-system:figma-export`) |
 
 **Profile checks (Terrazzo + Tailwind v4).**
 

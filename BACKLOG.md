@@ -4,7 +4,6 @@ What the plugin should do next, and why. Each item names the project run that sh
 
 ## Audit
 
-- **A token without `$type`** is valid DTCG when its type is inherited or resolved; the check should accept it.
 - **Derived rules for dimensions**, not only colours.
 - **Before proposing a dependency,** the auditor proposes the project's own reader or tool when one exists.
 - **Studies:** `@shadcn/lint` and fallow, for overlap with the rubric.
@@ -36,7 +35,11 @@ The design source (Figma later) exports the tokens: a token carries its value an
 
 ## Figma
 
-- Read and write DTCG from Figma Variables, test on a project whose tokens came from Figma (ispanviza-web's `styles/tokens.css` was extracted from a Figma node).
+The first way shipped in 0.13.0: `figma-export` writes Figma's native import files, and `figma-propose` turns a designer's export into a proposal.
+
+- **Prove two modes in one Figma collection.** ispanviza-web (one context) and cv-screener's light theme round-tripped with no change on 2026-10-11, on Figma Starter, which holds one mode per collection. On Professional: import cv-screener's `Colors/light` and `Colors/dark` as two modes of `Colors`, export (one zip, two files), and run `figma-propose`; then change a colour and a role's alias in Figma, in one mode, and run it again.
+- **The second way: an agent reads Figma through its MCP server.** The agent reads every variable of every mode (`use_figma`, since `get_variable_defs` reads only the selection's default mode) and writes the same files Figma's export does, so `figma-propose` runs unchanged.
+- **Styles through the MCP server:** text styles, shadows and gradients, which no variable holds, written as Figma styles bound to the variables, behind a checkpoint, with a person publishing (as Astryx's Figma Librarian does).
 
 ## Projects and proof
 

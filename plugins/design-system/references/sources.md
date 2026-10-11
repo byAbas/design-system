@@ -12,6 +12,7 @@
 | Resolver | https://www.designtokens.org/tr/2025.10/resolver/ | `sets`, `modifiers` and `contexts`, `resolutionOrder`, the `version` value the schema expects |
 | Color | https://www.designtokens.org/tr/2025.10/color/ | `colorSpace`, `components`, `alpha`, `hex` fallback |
 | FAQ | https://www.designtokens.org/faq/ | The spec's scope: it leaves organizational strategy to teams |
+| JSON Schema | https://www.designtokens.org/schemas/2025.10/format.json | The published schema the checks run, copied into `scripts/lib/schemas/` with its hash; a newer one replaces the copy and its record |
 
 Also check whether a newer version than 2025.10 exists (https://www.designtokens.org/), and whether the project's tools support it yet.
 

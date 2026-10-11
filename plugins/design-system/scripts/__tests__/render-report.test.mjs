@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { blockers, renderReport, reportProblems, reportWarnings } from "../render-report.mjs";
+import { TOKEN_DEFAULTS } from "../lib/project-modules.mjs";
 import { sampleReport } from "./sampleReport.mjs";
 
 describe("reportProblems", () => {
@@ -222,6 +223,6 @@ describe("tokenSettings", () => {
   it("warns about a key that is not a gates.json setting", () => {
     const report = sampleReport();
     report.stack.tokenSettings = { roles: "color", resolverPath: "tokens/x.json" };
-    assert.deepEqual(reportWarnings(report).filter((warning) => warning.includes("tokenSettings")), [`stack.tokenSettings.resolverPath is not a setting of design-system/gates.json tokens (${["resolver", "files", "modifier", "palette", "roles", "typography", "fonts", "extensionKey", "outDir", "rulesDocument", "readable", "code"].join(", ")}); use the setting's own name, so harness can copy it as it is`]);
+    assert.deepEqual(reportWarnings(report).filter((warning) => warning.includes("tokenSettings")), [`stack.tokenSettings.resolverPath is not a setting of design-system/gates.json tokens (${Object.keys(TOKEN_DEFAULTS).join(", ")}); use the setting's own name, so harness can copy it as it is`]);
   });
 });

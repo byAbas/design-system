@@ -40,6 +40,8 @@ export const TOKEN_DEFAULTS = {
   rulesDocument: "DESIGN.md",
   /** The token groups a component in the rules document's contract may read. */
   readable: ["colors", "typography", "rounded"],
+  /** Where figma-export.mjs writes the Figma variable files, which are also the baseline figma-propose.mjs compares against. */
+  figma: "design-system/figma",
   /** The folders, relative to the root, whose component files each need a contract key when they read colour roles; a folder that does not exist is skipped, and [] turns the coverage check off. */
   code: ["src", "app", "components", "pages"],
 };

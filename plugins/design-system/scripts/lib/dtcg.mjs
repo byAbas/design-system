@@ -85,7 +85,9 @@ function makeLoader(problems) {
     if (isObject(value) && typeof value.$ref === "string") value = follow(value, targetFile, targetDocument, [...stack, key]);
     return Object.keys(overrides).length > 0 ? mergeTokens(value, overrides) : value;
   };
-  return { readJson, follow };
+  /** Every file read so far that parsed, by absolute path: what a schema check validates. */
+  const loaded = () => [...cache].filter(([, document]) => document !== undefined);
+  return { readJson, follow, loaded };
 }
 
 /**
@@ -97,7 +99,7 @@ export function loadResolver(path) {
   const loader = makeLoader(problems);
   const file = resolve(path);
   const document = loader.readJson(file);
-  if (!isObject(document)) return { kind: "resolver", path: file, document: {}, problems, follow: loader.follow };
+  if (!isObject(document)) return { kind: "resolver", path: file, document: {}, problems, follow: loader.follow, loaded: loader.loaded };
   if (document.version !== "2025.10") problems.push(`resolver version is ${JSON.stringify(document.version)}; this reader follows 2025.10 (Resolver §4.1.2)`);
   if (!Array.isArray(document.resolutionOrder) || document.resolutionOrder.length === 0) problems.push("resolver has no resolutionOrder (Resolver §4.1.6)");
   for (const [name, modifier] of Object.entries(document.modifiers ?? {})) problems.push(...modifierProblems(name, modifier));
@@ -110,7 +112,7 @@ export function loadResolver(path) {
       if (item.type === "modifier") problems.push(...modifierProblems(item.name, item));
     }
   }
-  return { kind: "resolver", path: file, document, problems, follow: loader.follow };
+  return { kind: "resolver", path: file, document, problems, follow: loader.follow, loaded: loader.loaded };
 }
 
 function modifierProblems(name, modifier) {
@@ -125,7 +127,7 @@ function modifierProblems(name, modifier) {
 export function loadTokenFiles(paths) {
   const problems = [];
   const loader = makeLoader(problems);
-  return { kind: "files", paths: paths.map((path) => resolve(path)), problems, readJson: loader.readJson };
+  return { kind: "files", paths: paths.map((path) => resolve(path)), problems, readJson: loader.readJson, loaded: loader.loaded };
 }
 
 // ---------- resolving one input (Resolver §6) ----------
