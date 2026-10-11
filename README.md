@@ -7,7 +7,7 @@ A plugin for [Claude Code](https://code.claude.com). Its checks are plain Node s
 ## Install
 
 ```bash
-claude plugin marketplace add DevAbas/design-system
+claude plugin marketplace add byAbas/design-system
 ```
 
 ```bash

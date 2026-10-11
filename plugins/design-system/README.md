@@ -9,14 +9,14 @@ A Claude Code plugin by [Abas Turabli](https://abasturabli.com) that sets up, au
 ## Install
 
 ```bash
-claude plugin marketplace add DevAbas/design-system
+claude plugin marketplace add byAbas/design-system
 ```
 
 ```bash
 claude plugin install design-system@abasturabli
 ```
 
-Formerly `design-tokens` in `DevAbas/skills`; moving from it is in the CHANGELOG, 0.6.0.
+Formerly `design-tokens` in `byAbas/skills`; moving from it is in the CHANGELOG, 0.6.0.
 
 ## Stack and dependencies
 
