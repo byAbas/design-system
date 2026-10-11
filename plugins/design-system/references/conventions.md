@@ -59,6 +59,20 @@ The role groups take the names of the rules document's sections. `DESIGN.md` is 
 
 Before 0.5.0 the roles group was `color`. A project that has it sets `tokens.roles` (and `readable`) in `design-system/gates.json`, or moves (below).
 
+## The contract
+
+The rules document's `components:` contract names, by token id, the roles each component reads. Its keys follow one rule, so a check can tell which component file a key belongs to, and which files have none:
+
+- **A key starts with its component's file name in kebab-case.** `Button.tsx` → `button` or `button-*`; `CtaBannerSection.tsx` → `cta-banner-section-*`; `FAQSection.tsx` → `faq-section-*`. A key covers a file when it is that prefix, or starts with it and a hyphen.
+- **An `index` file takes its folder's name:** `Button/index.tsx` → `button`.
+- **A route file takes its folder's name and its own**, because every route has the same file name: `app/[locale]/layout.tsx` → `locale-layout`, `app/about/page.tsx` → `about-page`, `routes/about/+page.svelte` → `about-page`. A dynamic segment loses its brackets (`[slug]` → `slug`), and a route group's folder (`(marketing)`) is skipped. The route files are `page`, `layout`, `template`, `loading`, `error`, `global-error`, `not-found`, `default`, `route` and `root`.
+- **Pages are components.** A page file that reads roles needs its key, as any other file.
+- **Parts, variants and states** add to the key: `button-primary`, `button-primary-hover`, `contact-form-input-placeholder`. A variant states only what changes; the contrast check gives it what it does not state from the key it extends. A key ending in `-disabled` is exempt from contrast (SC 1.4.3), and a key ending in `-icon` is a graphic, held to 3:1 (SC 1.4.11).
+
+**Coverage.** `scripts/check-rules-contract.mjs` lists the component files (`.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro`, without tests and stories) under the code folders, `tokens.code` in `design-system/gates.json` (`["src", "app", "components", "pages"]` by default; a folder that does not exist is skipped, and `[]` turns coverage off). A file reads roles when it names a colour role in a colour utility (`bg-surface`, `hover:text-on-surface/80`) or in a variable (`var(--color-surface)`, `bg-(--color-surface)`). Each such file without a key is a `tiers/components-read-roles` finding. A helper in `.ts` or `.js` (a `cva` variants file) is its component's, not a component of its own.
+
+The rule comes from ispanviza-web, whose next audit computed coverage mechanically from it and named the 15 files with no key, page files included.
+
 ## A project that differs
 
 An existing project may already use other names (`color`, `radius`) or paths (`tokens/` at the root). Since DTCG does not prescribe them, **the audit does not report this as a finding**. Instead:

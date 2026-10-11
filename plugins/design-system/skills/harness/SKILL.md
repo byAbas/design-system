@@ -80,7 +80,7 @@ Write `design-system/gates.json`, starting from `${CLAUDE_PLUGIN_ROOT}/assets/ha
 - `build`: the one command that rewrites the generated outputs (for example `npm run -s tokens:build`). The message that stops an edit to an output names it. It is never a check: a `--check` command rewrites nothing, and an agent told to rebuild with it runs it and edits the output again. Without a build command, leave it out, and the message names none;
 - `lint`: `files` and `command`, for the linter an edited file gets, and `strictEnv`, the variables that make its rules errors;
 - `beforeCommit`: the commands every commit and CI run;
-- `tokens` (the checks): `resolver`, `modifier`, `palette`, `roles`, `typography`, `fonts`, `extensionKey`, `outDir`, `rulesDocument` and `readable`. Write every one that differs from the canonical layout, for example the `stack.tokenSettings` the audit recorded. A check that finds an empty roles group fails and names the groups the tokens have. `files` lists plain token files for a project without a resolver. Defaults are in `${CLAUDE_PLUGIN_ROOT}/scripts/lib/project-modules.mjs`.
+- `tokens` (the checks): `resolver`, `modifier`, `palette`, `roles`, `typography`, `fonts`, `extensionKey`, `outDir`, `rulesDocument`, `readable` and `code` (the folders whose component files need a contract key). Write every one that differs from the canonical layout, for example the `stack.tokenSettings` the audit recorded. A check that finds an empty roles group fails and names the groups the tokens have. `files` lists plain token files for a project without a resolver. Defaults are in `${CLAUDE_PLUGIN_ROOT}/scripts/lib/project-modules.mjs`.
 
 Every path and command in it is the project's own. None is copied from the example.
 
@@ -93,7 +93,7 @@ Every path and command in it is the project's own. None is copied from the examp
 | File | Rules |
 |---|---|
 | `scripts/check-tokens.mjs` | DTCG validity (a modifier needs two or more contexts), palette literal, roles alias the palette or are derived, derived values match their rule (lightness, mix or alpha), every context complete, text styles alias the fonts |
-| `scripts/check-rules-contract.mjs` | The rules document's front matter holds no values, imports the resolver, its contract names existing roles, and each component's text meets WCAG 2.1 AA on its background in every context. It reads the front matter with the project's `yaml` |
+| `scripts/check-rules-contract.mjs` | The rules document's front matter holds no values, imports the resolver, its contract names existing roles, every component file that reads roles has a key (`conventions.md`, The contract), and each component's text meets WCAG 2.1 AA on its background in every context. It reads the front matter with the project's `yaml` |
 | `scripts/lib/dtcg.mjs`, `lib/color.mjs`, `lib/project-modules.mjs` | The DTCG reader, the colour maths and the shared settings the checks use |
 
 **Profile checks (Terrazzo + Tailwind v4).**

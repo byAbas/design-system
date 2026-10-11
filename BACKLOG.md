@@ -26,7 +26,6 @@ What the plugin should do next, and why. Each item names the project run that sh
 
 - **Prove CI in a clean checkout.** The gates passed locally because `.next/types` existed; CI's fresh checkout had none, and `tsc` failed on `LayoutProps`. Before calling CI proven, run the commit gate in a fresh `git clone` with no build artifacts. (cv-screener)
 - **CSS lint by default:** extend the project's existing linter (`@eslint/css` with ESLint; Stylelint where the project already uses it; else Stylelint), with the same colour functions as `hasRawColor`. (cv-screener)
-- **Contract coverage: keys start with the component's file name.** The rubric asks that every component has a contract entry, but cv-screener's keys named visual parts (`button-primary-hover`) and nothing mapped component files to them, so harness could not check coverage. ispanviza-web started every key with its component's file name in kebab-case (`Button.tsx` → `button-*`, `CtaBannerSection.tsx` → `cta-banner-section-*`), and the next audit computed coverage mechanically: it named the 15 files that read roles with no key, and all were then added, page files included. Make this the convention in `references/conventions.md`, the setup skeleton and the rules-contract check, with no exemption for pages. (cv-screener, ispanviza-web)
 
 ## Profile: terrazzo-tailwind-v4 (Terrazzo 2.7.1)
 

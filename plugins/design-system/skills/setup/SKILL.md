@@ -92,7 +92,7 @@ The group names are the canonical ones, so the checks need no configuration.
 **Other groups.** Radii, spacing and shadows, as the product needs them. Shadows are per context when they differ.
 
 **Rules document.** A `DESIGN.md` from `${CLAUDE_PLUGIN_ROOT}/assets/setup/DESIGN.md`:
-- the front matter holds `imports:` and the `components:` contract, by role id. Each component names its `backgroundColor`, `textColor` and `typography`, so the check can measure its contrast in every context;
+- the front matter holds `imports:` and the `components:` contract, by role id. Each component names its `backgroundColor`, `textColor` and `typography`, so the check can measure its contrast in every context. Each key starts with its component's file name in kebab-case (`${CLAUDE_PLUGIN_ROOT}/references/conventions.md`, The contract);
 - every section explains meaning, use and reasons, and cites ids, never values;
 - it includes the "Reading the tokens" guide;
 - it lists the contrast pairs (decisions, Contrast).

@@ -7,9 +7,14 @@
 // - tiers/components-read-roles: every contract property names a token
 //   (`{colors.primary}`), never a value and never the palette;
 // - docs/rules-reference-existing-tokens: every token it names exists;
+// - tiers/components-read-roles, coverage: every component file under the
+//   code folders (`tokens.code`) that reads a colour role has a contract key
+//   starting with its file name in kebab-case (`CtaBannerSection.tsx` →
+//   `cta-banner-section-*`; a route file takes its folder, `about/page.tsx` →
+//   `about-page`), pages included (references/conventions.md, The contract);
 // - tiers/contrast-pairs: each component's textColor over its backgroundColor
 //   meets WCAG 2.1 AA in every context (lib/color.mjs): 4.5:1, or 3:1 when its
-//   typography is large text. A variant (`button-primary-hover`) takes what it
+//   typography is large text or its key names an icon (`trust-section-icon`). A variant (`button-primary-hover`) takes what it
 //   does not state from the component its key extends (`button-primary`), as
 //   the design.md format reads variants; a disabled variant is exempt.
 //
@@ -20,8 +25,8 @@
 // design-system/gates.json (`tokens`, lib/project-modules.mjs), then from the
 // flags check-tokens.mjs accepts (--resolver, --roles, --palette …).
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readProjectTokens } from "./check-tokens.mjs";
 import { colorHex, contrastRatio, readColor } from "./lib/color.mjs";
@@ -69,6 +74,95 @@ export function contractProblems(front, tokenIds, settings) {
     }
   }
   return problems;
+}
+
+// ---------- coverage: a contract key for every component that reads roles ----------
+
+/** File names a framework gives a route, which say where a file sits, not what it shows (Next.js, SvelteKit, Remix). */
+const ROUTE_FILES = new Set(["page", "layout", "template", "loading", "error", "global-error", "not-found", "default", "route", "root"]);
+/** Component files; plain .ts and .js hold helpers, and a helper's classes are its component's. */
+const COMPONENT_FILE = /\.(tsx|jsx|vue|svelte|astro)$/;
+const NOT_A_COMPONENT = /(^|\/)(__tests__|__mocks__)\/|\.(test|spec|stories)\.[a-z]+$/;
+const SKIPPED_FOLDERS = new Set(["node_modules", ".git", ".next", ".nuxt", ".svelte-kit", ".turbo", ".output", "dist", "build", "out", "coverage", "storybook-static"]);
+
+/** A name in kebab-case: `CtaBannerSection` → `cta-banner-section`, `FAQSection` → `faq-section`, `[locale]` → `locale`. */
+export function kebab(name) {
+  return name
+    .replace(/[[\]().]/g, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+}
+
+/**
+ * The prefix a component file's contract keys start with: its file name in kebab-case (`Button.tsx` → `button`).
+ * An `index` file takes its folder's name; a route file its folder's name and its own (`app/[locale]/layout.tsx` →
+ * `locale-layout`, `routes/about/+page.svelte` → `about-page`), a route group's folder `(marketing)` skipped.
+ * @param {string} file relative, forward slashes
+ */
+export function contractPrefix(file) {
+  const parts = file.split("/");
+  const base = parts.at(-1).split(".")[0].replace(/^\+/, "");
+  const folder = parts.slice(0, -1).filter((part) => !/^\(.*\)$/.test(part)).at(-1);
+  if (base === "index" && folder) return kebab(folder);
+  if (ROUTE_FILES.has(base) && folder) return `${kebab(folder)}-${kebab(base)}`;
+  return kebab(base);
+}
+
+/** The utilities that paint a colour, so `bg-surface` reads a role and `variant-surface` does not. */
+const COLOR_UTILITY = "(?:bg|text|border(?:-[xytrblse])?|ring(?:-offset)?|outline|fill|stroke|from|via|to|decoration|divide|accent|caret|placeholder|shadow)";
+
+/**
+ * A test of whether a file's text reads one of the colour roles: a colour utility naming it (`bg-surface`,
+ * `hover:text-on-surface/80`), or its CSS variable (`var(--color-surface)`, `bg-(--color-surface)`).
+ * @param {string[]} roleNames the roles group's names (`surface`, `on-surface`)
+ */
+export function roleReader(roleNames) {
+  if (roleNames.length === 0) return () => false;
+  const names = [...roleNames].sort((a, b) => b.length - a.length).map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const pattern = new RegExp(`(?<![\\w-])${COLOR_UTILITY}-(?:${names})(?![\\w-])|\\(\\s*--(?:[a-z]+-)?(?:${names})(?![\\w-])`);
+  return (text) => pattern.test(text);
+}
+
+/**
+ * Every component file that reads a colour role with no contract key for it, one sentence each. A key covers a file
+ * when it is the file's prefix or starts with the prefix and a hyphen (`button`, `button-primary-hover`).
+ * @param {string[]} keys the contract's component keys
+ * @param {{ path: string, text: string }[]} files
+ * @param {(text: string) => boolean} readsRoles
+ */
+export function coverageProblems(keys, files, readsRoles) {
+  const problems = [];
+  let reading = 0;
+  for (const { path, text } of files) {
+    if (!readsRoles(text)) continue;
+    reading += 1;
+    const prefix = contractPrefix(path);
+    if (keys.some((key) => key === prefix || key.startsWith(`${prefix}-`))) continue;
+    problems.push(`tiers/components-read-roles: ${path} reads colour roles, and no contract key starts with ${prefix}; add components.${prefix} (or ${prefix}-<part>) with the roles it reads`);
+  }
+  return { problems, reading };
+}
+
+/** The component files under the code folders, relative to the root, with their text; tests and stories left out. */
+export function componentFiles(root, folders) {
+  const files = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (!SKIPPED_FOLDERS.has(entry.name)) walk(path);
+        continue;
+      }
+      const file = relative(root, path).split("\\").join("/");
+      if (entry.isFile() && COMPONENT_FILE.test(file) && !NOT_A_COMPONENT.test(file)) files.push({ path: file, text: readFileSync(path, "utf8") });
+    }
+  };
+  for (const folder of folders) if (existsSync(join(root, folder))) walk(join(root, folder));
+  return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
 /** The CSS Fonts weight keywords DTCG accepts for fontWeight (Format §8.4), by number. */
@@ -142,13 +236,14 @@ export function contrastProblems(front, contexts) {
       }
       measured += 1;
       const typography = properties.typography && tokens[id(properties.typography)]?.$value;
-      const large = isLargeText(typography);
-      const minimum = large ? 3 : 4.5;
+      // An icon is a graphic, held to SC 1.4.11's 3:1; large text to SC 1.4.3's 3:1; other text to 4.5:1.
+      const kind = /(^|-)icon$/.test(component) ? "icon" : isLargeText(typography) ? "large text" : "text";
+      const minimum = kind === "text" ? 4.5 : 3;
       const ratio = contrastRatio(foreHex, backHex, foreAlpha);
       if (ratio >= minimum) continue;
       const inherited = [text, background].filter((property) => property.from).map((property) => `${property === text ? "textColor" : "backgroundColor"} from ${property.from}`);
       problems.push(
-        `tiers/contrast-pairs: ${where}: textColor ${text.value} (${foreHex}${foreAlpha < 1 ? ` at alpha ${foreAlpha}` : ""}) on backgroundColor ${background.value} (${backHex}) is ${(Math.floor(ratio * 100) / 100).toFixed(2)}:1, below ${minimum}:1 for ${large ? "large " : ""}text (WCAG 2.1 SC 1.4.3)${inherited.length > 0 ? `; ${inherited.join(", ")}` : ""}`,
+        `tiers/contrast-pairs: ${where}: textColor ${text.value} (${foreHex}${foreAlpha < 1 ? ` at alpha ${foreAlpha}` : ""}) on backgroundColor ${background.value} (${backHex}) is ${(Math.floor(ratio * 100) / 100).toFixed(2)}:1, below ${minimum}:1 for ${kind === "icon" ? "an icon (WCAG 2.1 SC 1.4.11)" : `${kind} (WCAG 2.1 SC 1.4.3)`}${inherited.length > 0 ? `; ${inherited.join(", ")}` : ""}`,
       );
     }
   }
@@ -173,14 +268,17 @@ async function main() {
   const tokenIds = new Set(Object.values(contexts).flatMap((tokens) => Object.keys(tokens)));
   const front = parseYaml(yaml) ?? {};
   const contrast = contrastProblems(front, contexts);
-  const problems = [...contractProblems(front, tokenIds, settings), ...contrast.problems];
+  const keys = Object.keys(typeof front.components === "object" && front.components !== null ? front.components : {});
+  const roleNames = [...new Set(Object.values(contexts).flatMap((tokens) => Object.keys(tokens)).filter((id) => id.startsWith(`${settings.roles}.`)).map((id) => id.slice(settings.roles.length + 1)))];
+  const coverage = coverageProblems(keys, componentFiles(root, settings.code), roleReader(roleNames));
+  const problems = [...contractProblems(front, tokenIds, settings), ...coverage.problems, ...contrast.problems];
   for (const pair of contrast.unmeasured) console.error(`note: not measured, ${pair}; its contrast depends on what it is painted over`);
-  const checked = `${contrast.measured} contrast pairs in ${Object.keys(contexts).join(", ") || "no context"}`;
+  const checked = `${coverage.reading} component files that read roles (in ${settings.code.join(", ") || "no folder"}) and ${contrast.measured} contrast pairs in ${Object.keys(contexts).join(", ") || "no context"}`;
   if (problems.length > 0) {
     console.error(`${settings.rulesDocument} breaks the rules document's contract:\n${problems.map((problem) => `  - ${problem}`).join("\n")}\ncheck-rules-contract: checked ${checked}`);
     return 1;
   }
-  console.log(`check-rules-contract: ${settings.rulesDocument} holds no values, names ${tokenIds.size > 0 ? "existing" : "no"} tokens, and meets WCAG 2.1 AA in ${checked}`);
+  console.log(`check-rules-contract: ${settings.rulesDocument} holds no values and names ${tokenIds.size > 0 ? "existing" : "no"} tokens; checked ${checked}: every file has a contract key, and every pair meets WCAG 2.1 AA`);
   return 0;
 }
 

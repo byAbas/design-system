@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
-import { contractProblems, contrastProblems, frontMatterText, isLargeText, withVariants } from "../check-rules-contract.mjs";
+import { componentFiles, contractPrefix, contractProblems, contrastProblems, coverageProblems, frontMatterText, isLargeText, kebab, roleReader, withVariants } from "../check-rules-contract.mjs";
 import { TOKEN_DEFAULTS } from "../lib/project-modules.mjs";
 
 const tokenIds = new Set(["colors.surface", "colors.on-surface", "typography.body-md", "rounded.md", "palette.gray-1"]);
@@ -95,6 +98,14 @@ describe("contrastProblems", () => {
     assert.deepEqual(problems, ["tiers/contrast-pairs: components.title: textColor {colors.ink-50} (#000000 at alpha 0.5) on backgroundColor {colors.surface} (#ffffff) is 3.97:1, below 4.5:1 for text (WCAG 2.1 SC 1.4.3)"]);
   });
 
+  it("holds an icon, named by its key, to non-text contrast: 3:1", () => {
+    const components = { "trust-section-icon": { backgroundColor: "{colors.surface}", textColor: "{colors.ink-50}" }, "trust-section-iconography": { backgroundColor: "{colors.surface}", textColor: "{colors.ink-50}" } };
+    const { problems } = contrastProblems(front(components), { light: tokens() });
+    assert.deepEqual(problems, ["tiers/contrast-pairs: components.trust-section-iconography: textColor {colors.ink-50} (#000000 at alpha 0.5) on backgroundColor {colors.surface} (#ffffff) is 3.97:1, below 4.5:1 for text (WCAG 2.1 SC 1.4.3)"]);
+    const faint = contrastProblems(front({ "badge-icon": { backgroundColor: "{colors.surface}", textColor: "{colors.primary}" } }), { light: tokens() }).problems;
+    assert.deepEqual(faint, ["tiers/contrast-pairs: components.badge-icon: textColor {colors.primary} (#d4a017) on backgroundColor {colors.surface} (#ffffff) is 2.37:1, below 3:1 for an icon (WCAG 2.1 SC 1.4.11)"]);
+  });
+
   it("checks a variant with the text it inherits, and skips a disabled one", () => {
     const components = { "button-primary": { backgroundColor: "{colors.on-surface}", textColor: "{colors.on-primary}" }, "button-primary-hover": { backgroundColor: "{colors.primary}" }, "button-primary-disabled": { backgroundColor: "{colors.surface}" } };
     const { problems, measured } = contrastProblems(front(components), { light: tokens() });
@@ -105,5 +116,70 @@ describe("contrastProblems", () => {
   it("does not measure a translucent background, and says so", () => {
     const result = contrastProblems(front({ overlay: { backgroundColor: "{colors.scrim}", textColor: "{colors.on-primary}" } }), { light: tokens() });
     assert.deepEqual(result, { problems: [], measured: 0, unmeasured: ["components.overlay: backgroundColor {colors.scrim} is translucent"] });
+  });
+});
+
+describe("contractPrefix", () => {
+  it("is the file name in kebab-case, a folder's for an index file, and folder and name for a route file", () => {
+    const cases = {
+      "components/sections/CtaBannerSection/CtaBannerSection.tsx": "cta-banner-section",
+      "components/FAQSection.tsx": "faq-section",
+      "components/ui/Button.client.tsx": "button",
+      "components/Button/index.tsx": "button",
+      "app/[locale]/layout.tsx": "locale-layout",
+      "app/[locale]/about/page.tsx": "about-page",
+      "app/(marketing)/pricing/page.tsx": "pricing-page",
+      "app/blog/[...slug]/page.tsx": "slug-page",
+      "src/routes/about/+page.svelte": "about-page",
+      "app/page.tsx": "app-page",
+    };
+    for (const [file, prefix] of Object.entries(cases)) assert.equal(contractPrefix(file), prefix, file);
+    assert.equal(kebab("HTTPStatusBadge"), "http-status-badge");
+  });
+});
+
+describe("roleReader", () => {
+  const reads = roleReader(["surface", "on-surface", "primary"]);
+
+  it("finds a colour utility or a variable naming a role", () => {
+    for (const text of ['className="bg-surface"', "hover:text-on-surface/80", "var(--color-primary)", "bg-(--color-surface)", "border-t-primary"]) assert.ok(reads(text), text);
+  });
+
+  it("leaves words that only contain a role's name", () => {
+    for (const text of ['variant="surface"', "bg-surface-2", "text-primary-foreground", "isPrimary", "--surface-gap: 4px"]) assert.ok(!reads(text), text);
+  });
+});
+
+describe("coverageProblems", () => {
+  const reads = roleReader(["surface"]);
+  const file = (path, text = '<div className="bg-surface" />') => ({ path, text });
+
+  it("passes a file whose prefix is a key, or starts one, and ignores a file that reads no role", () => {
+    const files = [file("components/Card.tsx"), file("components/ButtonGroup.tsx"), file("components/Plain.tsx", "<div />")];
+    assert.deepEqual(coverageProblems(["card", "button-group-item-hover"], files, reads), { problems: [], reading: 2 });
+  });
+
+  it("names each file that reads roles with no key, pages included, and is not fooled by a longer name", () => {
+    const files = [file("components/Card.tsx"), file("app/about/page.tsx")];
+    assert.deepEqual(coverageProblems(["cardigan", "about"], files, reads).problems, [
+      "tiers/components-read-roles: components/Card.tsx reads colour roles, and no contract key starts with card; add components.card (or card-<part>) with the roles it reads",
+      "tiers/components-read-roles: app/about/page.tsx reads colour roles, and no contract key starts with about-page; add components.about-page (or about-page-<part>) with the roles it reads",
+    ]);
+  });
+});
+
+describe("componentFiles", () => {
+  it("lists component files under the folders that exist, without tests, stories, helpers or dependencies", () => {
+    const root = mkdtempSync(join(tmpdir(), "design-system-coverage-"));
+    const files = ["src/Card.tsx", "src/Card.test.tsx", "src/Card.stories.tsx", "src/cardVariants.ts", "src/__tests__/Fixture.tsx", "src/node_modules/x/Y.tsx", "app/about/page.tsx", "app/Nav.vue", "lib/Other.tsx"];
+    for (const file of files) {
+      mkdirSync(dirname(join(root, file)), { recursive: true });
+      writeFileSync(join(root, file), "x");
+    }
+    try {
+      assert.deepEqual(componentFiles(root, ["src", "app", "missing"]).map((file) => file.path), ["app/about/page.tsx", "app/Nav.vue", "src/Card.tsx"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
