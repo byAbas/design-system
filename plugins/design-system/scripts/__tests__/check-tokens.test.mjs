@@ -195,6 +195,7 @@ describe("settings", () => {
       writeFileSync(join(root, "design-system/gates.json"), JSON.stringify({ tokens: { roles: "colors", resolver: "tokens/r.json" } }));
       assert.equal(tokenSettings(root).roles, "colors");
       assert.deepEqual(tokenSettings(root, flagSettings(["--roles", "role", "--resolver", "x.json"])), { ...tokenSettings(root), roles: "role", resolver: "x.json" });
+      assert.deepEqual(flagSettings(["--extension-key", "com.ispanviza.design", "--modifier", "mode"]), { extensionKey: "com.ispanviza.design", modifier: "mode" });
       assert.deepEqual(readConfig(root).notes, []);
     } finally {
       rmSync(root, { recursive: true, force: true });

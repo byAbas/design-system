@@ -45,7 +45,7 @@ export const TOKEN_DEFAULTS = {
 };
 
 /** The command-line flags a check accepts, each overriding one setting. */
-export const SETTING_FLAGS = { "--resolver": "resolver", "--roles": "roles", "--palette": "palette", "--typography": "typography", "--fonts": "fonts", "--modifier": "modifier" };
+export const SETTING_FLAGS = { "--resolver": "resolver", "--roles": "roles", "--palette": "palette", "--typography": "typography", "--fonts": "fonts", "--modifier": "modifier", "--extension-key": "extensionKey" };
 
 /** The settings named by flags in `argv` (`--roles color`). */
 export function flagSettings(argv = []) {

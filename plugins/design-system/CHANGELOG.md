@@ -7,6 +7,20 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.11.1
+
+Small things the project runs showed.
+
+- **A latest release that cannot be installed is marked as blocked.** On ispanviza-web and cv-screener, the versions table listed ESLint 10 as latest. But `eslint-config-next` 16 brings `eslint-plugin-react`, `-import` and `-jsx-a11y`, whose peer ranges stop at ESLint 9 (`^3 || … || ^9.7`).
+  - The scan now lists, for each listed package, the installed packages that hold it to a peer range.
+  - The audit copies them into `versions.<package>.peers`.
+  - `render-report.mjs` checks the latest release against each range with a new dependency-free semver check (`scripts/lib/semver.mjs`), and names the package that blocks it.
+- **"Runs in" has one meaning: where a check runs.** A gate may be `kind: "state"`, a configuration the build or a file holds, with no `runs`. `gate/theme-palette-reset` had said "Runs in: ci", but the reset is a state of the theme file that the build holds.
+- **`--extension-key`**, so a project whose derived rules sit under its own `$extensions` key can be checked without a config. `stack.tokenSettings` uses the setting names of `design-system/gates.json`, so harness copies it as it is, and `render-report.mjs` warns about any other key.
+- **Scan candidates carry evidence.** Each rules-document candidate says why it was picked (`why`), so the auditor does not work it out again.
+- **A fresh build before comparing reports.** `fix` rebuilds the outputs and confirms the staleness check before it re-audits, since a report against stale outputs measures the last build.
+- **CI is proven in a clean checkout.** On cv-screener, the gates passed locally because `.next/types` existed, and CI's fresh checkout failed `tsc`. `harness` now runs the commit gate in a fresh clone in the scratchpad, installed with the project's package manager version, before it calls CI proven.
+
 ## 0.11.0
 
 A project with many findings can gate on "no new ones", and the decisions about what is out of scope are recorded once.

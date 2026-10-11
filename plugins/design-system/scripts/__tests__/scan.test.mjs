@@ -74,11 +74,29 @@ describe("scanProject", () => {
     assert.deepEqual(scan.rulesDocument, { path: "DESIGN.md", frontMatterKeys: ["name", "imports", "colors", "components"] });
   });
 
-  it("lists other files that may be the rules document, with their front matter keys", () => {
+  it("lists other files that may be the rules document, with why each was picked and its front matter keys", () => {
     assert.deepEqual(scan.rulesDocumentCandidates, [
-      { path: "DESIGN.md", frontMatterKeys: ["name", "imports", "colors", "components"] },
-      { path: "docs/design-system.md", frontMatterKeys: ["title"] },
+      { path: "DESIGN.md", why: "named DESIGN.md, the design.md format's file", frontMatterKeys: ["name", "imports", "colors", "components"] },
+      { path: "docs/design-system.md", why: "its name says design-system", frontMatterKeys: ["title"] },
     ]);
+  });
+
+  it("lists the peer ranges installed packages hold a listed package to", () => {
+    const fixture = writeProjectFixture({
+      "package.json": JSON.stringify({ name: "peers", devDependencies: { eslint: "^9.39.1", "eslint-config-next": "16.4.0" } }),
+      "node_modules/eslint/package.json": JSON.stringify({ name: "eslint", version: "9.39.1" }),
+      "node_modules/eslint-plugin-react/package.json": JSON.stringify({ name: "eslint-plugin-react", version: "7.37.5", peerDependencies: { eslint: "^3 || ^4 || ^5 || ^6 || ^7 || ^8 || ^9.7" } }),
+      "node_modules/@next/eslint-plugin-next/package.json": JSON.stringify({ name: "@next/eslint-plugin-next", version: "16.4.0" }),
+      "node_modules/@scope/eslint-thing/package.json": JSON.stringify({ name: "@scope/eslint-thing", version: "1.0.0", peerDependencies: { eslint: ">=9" } }),
+    });
+    try {
+      assert.deepEqual(scanProject(fixture.root).dependencies.eslint.peers, [
+        { package: "@scope/eslint-thing", version: "1.0.0", range: ">=9" },
+        { package: "eslint-plugin-react", version: "7.37.5", range: "^3 || ^4 || ^5 || ^6 || ^7 || ^8 || ^9.7" },
+      ]);
+    } finally {
+      fixture.cleanup();
+    }
   });
 
   it("counts raw colours in source, skipping tests and generated outputs", () => {

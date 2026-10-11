@@ -4,23 +4,17 @@ What the plugin should do next, and why. Each item names the project run that sh
 
 ## Audit
 
-- **Versions table: say when the latest cannot be installed.** It listed ESLint 10.11.0 as latest, but `eslint-config-next` 16 depends on `eslint-plugin-react`, `-import` and `-jsx-a11y`, whose peer ranges stop at ESLint 9. Read the peer ranges of the installed dependents and mark a latest version as blocked, naming the blocker. (ispanviza-web, cv-screener)
-- **"Runs in" needs one meaning.** `gate/theme-palette-reset` says "Runs in: ci", but it is a state of the theme file, enforced by the build. Define the column (where a check runs) and use a separate kind for configuration states.
-- **Scan candidates carry evidence**, so the auditor does not re-derive why a file was picked.
 - **A token without `$type`** is valid DTCG when its type is inherited or resolved; the check should accept it.
 - **Derived rules for dimensions**, not only colours.
-- **`--extension-key` flag**, and `tokenSettings` keys that match the setting names in `gates.json`.
 - **Before proposing a dependency,** the auditor proposes the project's own reader or tool when one exists.
 - **Studies:** `@shadcn/lint` and fallow, for overlap with the rubric.
 
 ## Fix
 
 - **Visual verification for migrations.** The ispanviza-web batch captured computed styles (colour, background, border, shadow, font size, line height, weight, max-width) of every element on every route at two widths, plus screenshots and interaction states, before and after, and stopped on any difference. Make this the default proof for a batch that must not change rendering, run from the session scratchpad, never added to the project. Diff the pre-rendered HTML too: on ispanviza-web every screenshot was identical while two routes lost a CTA link from the server HTML (the browser added it back), which only the HTML diff showed. And check the base build on its own: a comparison of two builds cannot see a fault both share.
-- **Confirm a fresh build before comparing reports.**
 
 ## Harness
 
-- **Prove CI in a clean checkout.** The gates passed locally because `.next/types` existed; CI's fresh checkout had none, and `tsc` failed on `LayoutProps`. Before calling CI proven, run the commit gate in a fresh `git clone` with no build artifacts. (cv-screener)
 - **CSS lint by default:** extend the project's existing linter (`@eslint/css` with ESLint; Stylelint where the project already uses it; else Stylelint), with the same colour functions as `hasRawColor`. (cv-screener)
 
 ## Profile: terrazzo-tailwind-v4 (Terrazzo 2.7.1)

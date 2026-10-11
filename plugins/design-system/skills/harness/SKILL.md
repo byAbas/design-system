@@ -188,6 +188,8 @@ A gate that never failed is not yet a gate. For each installed gate:
 
 Report each gate as proven, with the command and both results. Leave no violation behind.
 
+**CI in a clean checkout.** A gate can pass locally only because of something the working copy has and CI's checkout does not: cv-screener's gates passed because `.next/types` existed, and CI's fresh checkout failed `tsc` on `LayoutProps`. Before calling CI proven, clone the commit into the session scratchpad (`git clone --no-local <project> <scratchpad>/clean`), install with the project's own package manager version (`${CLAUDE_PLUGIN_ROOT}/references/sources.md`, Before an install) and the CI's install command, and run `node design-system/harness/run-gates.mjs before-commit` there, with no build artifacts. Say which step needs a build first, and add that build to CI before the gates.
+
 A hook run by hand proves its script, not that Claude Code loads it. The hooks load from `.claude/settings.json` when a session starts, so after the commit ask the person to start a new session, approve the hooks, and give the agent there an ordinary task that touches a colour, without saying it is a test, and read the transcript for each hook that fires. A deliberate violation shows only that a hook is loaded; an ordinary task shows what the agent does with the gates in place. The transcript line of each hook firing is the proof.
 
 ## Step 6: Record

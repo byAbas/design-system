@@ -11,6 +11,8 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { TOKEN_DEFAULTS } from "./lib/project-modules.mjs";
+import { satisfies } from "./lib/semver.mjs";
 
 export const PARTS = ["naming", "tiers", "format", "docs"];
 const STATUSES = ["met", "partial", "missing"];
@@ -92,7 +94,11 @@ export function reportProblems(report) {
       if (!Array.isArray(gate?.checks) || gate.checks.length === 0) problems.push(`${at}.checks names no rule`);
       else for (const rule of gate.checks) if (!RULE_ID.test(String(rule))) problems.push(`${at}.checks has ${JSON.stringify(rule)}, not a rubric rule id`);
       if (!isText(gate?.tool?.name) || !["existing", "custom"].includes(gate?.tool?.kind)) problems.push(`${at}.tool needs a name and kind existing or custom`);
-      if (!Array.isArray(gate?.runs) || gate.runs.length === 0 || gate.runs.some((run) => !RUNS.includes(run))) problems.push(`${at}.runs must list ${RUNS.join(", ")}`);
+      // "Runs in" means where a check runs. A state of the config (a theme's palette reset) runs nowhere: its build holds it.
+      if (gate?.kind !== undefined && !["check", "state"].includes(gate.kind)) problems.push(`${at}.kind is ${JSON.stringify(gate.kind)}, expected check or state`);
+      else if (gate?.kind === "state") {
+        if (gate.runs !== undefined && (!Array.isArray(gate.runs) || gate.runs.length > 0)) problems.push(`${at} is a state, which runs nowhere; leave runs out and name what holds it in tool`);
+      } else if (!Array.isArray(gate?.runs) || gate.runs.length === 0 || gate.runs.some((run) => !RUNS.includes(run))) problems.push(`${at}.runs must list ${RUNS.join(", ")}`);
       if (!GATE_STATUSES.includes(gate?.status)) problems.push(`${at}.status is ${JSON.stringify(gate?.status)}, expected one of ${GATE_STATUSES.join(", ")}`);
     });
   }
@@ -163,7 +169,19 @@ export function reportWarnings(report) {
   const unchecked = Object.entries(report.stack?.versions ?? {})
     .filter(([, version]) => !version?.latest)
     .map(([name]) => `stack.versions.${name} has no latest; check it in the registry (references/sources.md), or leave the package out`);
-  return [...sentences, ...unchecked];
+  const settings = Object.keys(report.stack?.tokenSettings ?? {})
+    .filter((key) => !Object.hasOwn(TOKEN_DEFAULTS, key))
+    .map((key) => `stack.tokenSettings.${key} is not a setting of design-system/gates.json tokens (${Object.keys(TOKEN_DEFAULTS).join(", ")}); use the setting's own name, so harness can copy it as it is`);
+  return [...sentences, ...unchecked, ...settings];
+}
+
+/**
+ * The installed packages whose peer range does not allow a package's latest release, so it cannot be installed yet:
+ * eslint-plugin-react 7.37.5 allows `^3 || … || ^9.7`, which leaves out ESLint 10.
+ * @param {{ latest?: string | null, peers?: { package: string, version?: string | null, range: string }[] }} version
+ */
+export function blockers(version) {
+  return version.latest ? (version.peers ?? []).filter((peer) => !satisfies(version.latest, peer.range)) : [];
 }
 
 const SEVERITY_ORDER = Object.fromEntries(SEVERITIES.map((severity, index) => [severity, index]));
@@ -231,7 +249,8 @@ export function renderReport(report) {
     lines.push("| Gate | Does | Checks | Tool | Runs in | Status |", "|---|---|---|---|---|---|");
     for (const gate of report.gates) {
       const tool = `${gate.tool.name} (${gate.tool.kind}${gate.tool.basis ? `, from ${gate.tool.basis}` : ""})`;
-      lines.push(`| ${code(gate.id)} | ${cell(gate.does)} | ${gate.checks.map(code).join(", ")} | ${cell(tool)} | ${gate.runs.join(", ")} | ${gate.status} |`);
+      const runs = gate.kind === "state" ? "a state, held by the tool" : gate.runs.join(", ");
+      lines.push(`| ${code(gate.id)} | ${cell(gate.does)} | ${gate.checks.map(code).join(", ")} | ${cell(tool)} | ${runs} | ${gate.status} |`);
     }
     lines.push("");
   }
@@ -239,7 +258,11 @@ export function renderReport(report) {
   const versions = Object.entries(stack.versions ?? {});
   if (versions.length > 0) {
     lines.push("## Versions", "", "| Package | Installed | Latest stable |", "|---|---|---|");
-    for (const [name, version] of versions) lines.push(`| ${name} | ${version.installed ?? "not installed"} | ${version.latest ?? "not checked"} |`);
+    for (const [name, version] of versions) {
+      const blocked = version.latest ? blockers(version) : [];
+      const latest = version.latest ? `${version.latest}${blocked.length > 0 ? `, blocked: ${blocked.map((peer) => `${peer.package}${peer.version ? ` ${peer.version}` : ""} allows ${code(peer.range)}`).join("; ")}` : ""}` : "not checked";
+      lines.push(`| ${name} | ${version.installed ?? "not installed"} | ${cell(latest)} |`);
+    }
     lines.push("");
   }
 
