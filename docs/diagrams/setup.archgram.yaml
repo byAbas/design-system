@@ -1,5 +1,6 @@
 archgram: 1
 diagram: sequence
+card: vertical
 title: "/design-system:setup"
 description: >-
   You run /design-system:setup. It scans the project with the plugin's
@@ -18,8 +19,7 @@ participants:
   - { id: you, kind: users, label: You, variant: external }
   - { id: setup, kind: agent, label: setup skill, note: plans before writing, source: ../../plugins/design-system/skills/setup/SKILL.md }
   - { id: scripts, kind: script, label: scripts/, note: "scan and checks", tech: nodedotjs, source: [../../plugins/design-system/scripts/scan.mjs, ../../plugins/design-system/scripts/check-tokens.mjs, ../../plugins/design-system/scripts/check-rules-contract.mjs] }
-  - { id: project, kind: file, label: Your project, note: "tokens, DESIGN.md", source: ../../plugins/design-system/assets/setup }
-  - { id: build, kind: script, label: Build, note: Terrazzo, tech: tailwindcss, source: ../../plugins/design-system/assets/harness/terrazzo-tailwind-v4/terrazzo.config.ts }
+  - { id: project, kind: file, label: Your project, note: "tokens, Terrazzo build", tech: tailwindcss, source: [../../plugins/design-system/assets/setup, ../../plugins/design-system/assets/harness/terrazzo-tailwind-v4/terrazzo.config.ts] }
   - { id: audit, kind: agent, label: audit skill, source: ../../plugins/design-system/skills/audit/SKILL.md }
 messages:
   - phase: Read the project
@@ -39,9 +39,8 @@ messages:
   - { reply: you, label: approved }
   - phase: Write and build
   - { from: setup, to: project, label: "tokens, DESIGN.md, config", async: true, source: ["../../plugins/design-system/skills/setup/SKILL.md#Write the token files, then the rules document, then the build config", "../../plugins/design-system/skills/setup/SKILL.md#Generate the palette with the chosen generator", "../../plugins/design-system/skills/setup/SKILL.md#Compute each derived role's value per context"] }
-  - { from: setup, to: build, label: "install, build", source: "../../plugins/design-system/skills/setup/SKILL.md#Install the approved dependencies" }
-  - { from: build, to: project, label: generated CSS, async: true, source: "../../plugins/design-system/assets/harness/terrazzo-tailwind-v4/terrazzo.config.ts#outDir: process.env.DESIGN_TOKENS_OUT_DIR" }
-  - { reply: build, label: built }
+  - { from: setup, to: project, label: "install, build", source: "../../plugins/design-system/skills/setup/SKILL.md#Install the approved dependencies" }
+  - { reply: project, label: generated CSS, source: "../../plugins/design-system/assets/harness/terrazzo-tailwind-v4/terrazzo.config.ts#outDir: process.env.DESIGN_TOKENS_OUT_DIR" }
   - phase: Prove it
   - { from: setup, to: scripts, label: run the checks, source: "../../plugins/design-system/skills/setup/SKILL.md#run the plugin's checks directly" }
   - { reply: scripts, label: all pass }
