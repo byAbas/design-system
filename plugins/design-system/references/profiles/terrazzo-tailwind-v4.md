@@ -27,6 +27,10 @@ A project with other paths records them once, in `design-system/gates.json`, and
 `assets/harness/terrazzo-tailwind-v4/terrazzo.config.ts` and `theme.template.css` are the starting point. What they encode:
 
 - **`@terrazzo/plugin-css`:** every token of the default context as `:root` variables. The other contexts produce nothing here, because they reach the page through the Tailwind theme's variant.
+- **One name per token.** Both plugins name a variable with the config's `cssVar()`: a role group takes its Tailwind namespace, any other group keeps its name. `colors.canvas` is `--color-canvas` in `:root` and in the theme, and `bg-canvas` reads it; `palette.gray-9` is `--palette-gray-9`. Without it, plugin-css names the role `--colors-canvas` and the theme `--color-canvas`: two names for one token.
+  - **The role's `:root` copy is expected.** plugin-tailwind reads every value from plugin-css's transforms, so plugin-css transforms every token, roles included, and writes them to `:root` beside Tailwind's theme. With one name the copy holds the same value under the same name. The dark context still wins: Tailwind writes its variant's rules unlayered, after `:root`, at the same specificity (verified in Chromium on cv-screener's tokens, 2026-10-11).
+  - **Typography composites keep only their parts** (`omitTypographyShorthand: true`). plugin-css would write the `font` shorthand under the style's name, which is `--text-<style>`, the name Tailwind gives the font size.
+- **Gradients:** a DTCG gradient holds its stops only, with no angle or shape (Format 2025.10, §9.6), and plugin-css writes the stops alone, which is no CSS image. The token records the rest in the project's `$extensions` key, `{ "css": { "function": "linear-gradient", "prelude": "90deg" } }`, and the config's `transform` writes the whole value, each stop reading its palette variable: `linear-gradient(90deg, var(--palette-red-9) 0%, var(--palette-gold-9) 100%)`. A gradient without it fails the build. Set `EXTENSION_KEY` in the config to the project's `tokens.extensionKey`.
 - **`@terrazzo/plugin-tailwind`:** the template's `@tz (<modifier>: "<context>")` rules receive each context. The `theme` option maps token groups to Tailwind namespaces, so each group makes its utilities:
 
   | Token group | Tailwind namespace |
@@ -82,13 +86,15 @@ The token check needs none of them.
 
 ## Pitfalls
 
-Found while migrating a real project, and confirmed in Terrazzo 2.7.1. Re-check each one in the installed version.
+Found while migrating real projects, and confirmed in Terrazzo 2.7.1 and Tailwind 4.3.3. Re-check each one in the installed version.
 
 - **`lint.rules` replaces the recommended rules.** Terrazzo applies its recommended set only when `lint.rules` is undefined, so a config that sets any rule runs only those rules. Spread the recommended set first: `rules: { ...RECOMMENDED_CONFIG, … }`, with `RECOMMENDED_CONFIG` from `@terrazzo/parser`. The template config does this.
 - **A relative template path resolves against `outDir`, not the project root.** The build then fails with "Could not locate template". Pass the path through `resolve()`, as the template config does.
 - **One context is a set, not a modifier.** A modifier must declare two or more contexts (Resolver §4.1.5.1; the resolver schema's `minProperties: 2`), so a single theme goes in a set, and the resolver has no modifier. Terrazzo accepts a one-context modifier, but the file is not valid DTCG, and `check-tokens.mjs` reports it.
-  - With no modifier, the template uses `@tz(tzMode: ".")`: Terrazzo documents `tzMode` as its virtual modifier for tokens without resolver modifiers, and warns against mixing it with resolver modifiers.
-  - A missing or wrong argument (`@tz()`, `@tz(tzMode: "nope")`) builds an empty `@theme` with exit 0 and only a "matched 0 tokens" warning. `check-generated.mjs` fails on an output with no tokens for this reason.
+  - With no modifier, the template uses `@tz(tzMode: ".")`: Terrazzo documents `tzMode` as its virtual modifier for tokens without resolver modifiers, and warns against mixing it with resolver modifiers. plugin-css takes one permutation, `{ input: {} }`.
+  - A missing or wrong argument (`@tz()`, `@tz(tzMode: "nope")`) builds an empty `@theme` with exit 0 and only a "matched 0 tokens" warning. So does a bare `@tz;` when plugin-css has no permutations (it works beside an explicit `{ input: {} }`). `check-generated.mjs` fails on an output with no tokens for this reason.
+- **One token group per Tailwind namespace.** Given an array of groups (`color: ["colors.*", "brand.*"]`), plugin-tailwind 2.7.1 strips the last group's prefix from every token, so `colors.canvas` becomes `--color-colors-canvas`. Map one group per namespace, as a string; a project that needs two names each variable with `variableName`.
+- **`legacyHex` rounds alpha.** plugin-css's `legacyHex: true` writes sRGB colours as hex, and 8-digit hex holds alpha in 1/255 steps (0.12 becomes `1f`, 0.1216). The template leaves it off, and the default writes `rgb(0% 0% 0% / 0.12)`. A project that wants hex writes a colour with transparency as `rgb(r g b / alpha)` in its `transform`.
 - **Line height is a ratio, and its product must not fall below the pixel value.**
   - *The standards.*
     - DTCG requires a number: `lineHeight` "MUST be a valid number value or a reference to a number token" (Format 2025.10, §9.8, https://www.designtokens.org/tr/2025.10/format/).

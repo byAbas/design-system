@@ -7,6 +7,15 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.14.1
+
+The Terrazzo profile's template, rebuilt and checked against Terrazzo 2.7.1 and Tailwind 4.3.3 on two real token sets: ispanviza-web's (one context, gradients) and cv-screener's (light and dark).
+
+- **One name per token** (`assets/harness/terrazzo-tailwind-v4/terrazzo.config.ts`): both plugins name a variable with `cssVar()`, so `colors.canvas` is `--color-canvas` in `:root` and in the Tailwind theme, where plugin-css used to write a second name, `--colors-canvas`. The theme's mapping is built from the same table. Typography composites keep only their parts (`omitTypographyShorthand`), since the shorthand would take Tailwind's `--text-<style>`.
+- **Gradients become CSS images:** the config's `transform` writes `linear-gradient(...)` or `radial-gradient(...)` from the geometry the token records in the project's `$extensions` key, each stop reading its palette variable; plugin-css alone writes the stops only. On ispanviza-web's tokens the result is byte for byte its committed output.
+- **Proof:** the roles, text styles, radii and shadows match ispanviza-web's committed theme. On cv-screener's tokens, headless Chromium computes `bg-primary` as each context's palette entry (light `#00f3bb`, dark `#00ffc6`): the role's `:root` copy does not hide the dark context.
+- **The profile's pitfalls** (`references/profiles/terrazzo-tailwind-v4.md`): one token group per Tailwind namespace (plugin-tailwind 2.7.1 mis-prefixes an array), `legacyHex` rounding alpha to 1/255, and a bare `@tz;` building an empty theme without a plugin-css permutation. The backlog's claim that `@tz(tzMode: ".")` matches no tokens in a one-context project did not reproduce in four configurations, ispanviza-web's own included, so the template keeps it.
+
 ## 0.14.0
 
 Figma, the second way: `/design-system:figma-propose` reads the designer's Figma file itself, through Figma's official MCP server, read only. No export is needed.
