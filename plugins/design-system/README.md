@@ -51,6 +51,8 @@ The only profile today. It assumes **Tailwind CSS v4**, and builds the Tailwind 
 | `@terrazzo/plugin-js` | Optional: resolved values for server code that cannot read CSS variables (OG images, metadata) | MIT | 2.7.1 |
 | `yaml` | Read `DESIGN.md`'s front matter in the contract check | ISC | 2.9.1 |
 | ESLint (flat config) | Run the `token-classes` and `no-raw-color` rules. The project's own ESLint is used | MIT | 9.39. ESLint 10 is not tested yet |
+| `@eslint/css`, `tailwind-csstree` | Lint stylesheets with the same rules, in a project that lints with ESLint | Apache-2.0 | 2.0.0, 0.4.1 |
+| Stylelint | Optional, instead of `@eslint/css` where Stylelint already lints the stylesheets: the `no-raw-color` rule | MIT | 17.15.0 |
 | `@google/design.md` | Optional: lint `DESIGN.md` and its contrast pairs | Apache-2.0 | 0.4.0 |
 
 ### Without a matching profile

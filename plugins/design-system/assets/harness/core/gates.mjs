@@ -70,12 +70,22 @@ export function gatesProblems(config) {
   };
   for (const key of ["generated", "sources", "onSourceEdit", "beforeCommit"]) list(key);
   if (c.build !== undefined && (typeof c.build !== "string" || !c.build.trim())) problems.push("build must be the command that rewrites the generated outputs");
-  if (c.lint !== undefined) {
-    if (!Array.isArray(c.lint?.files) || typeof c.lint?.command !== "string") problems.push("lint needs files (globs) and command (the linter, which receives the edited files as its last arguments)");
-    if (c.lint?.strictEnv !== undefined && (typeof c.lint.strictEnv !== "object" || Object.values(c.lint.strictEnv).some((value) => typeof value !== "string"))) problems.push("lint.strictEnv must map variable names to strings");
+  for (const [index, lint] of lintsOf(c).entries()) {
+    const at = Array.isArray(c.lint) ? `lint[${index}]` : "lint";
+    if (!Array.isArray(lint?.files) || typeof lint?.command !== "string") problems.push(`${at} needs files (globs) and command (the linter, which receives the edited files as its last arguments)`);
+    if (lint?.strictEnv !== undefined && (typeof lint.strictEnv !== "object" || Object.values(lint.strictEnv).some((value) => typeof value !== "string"))) problems.push(`${at}.strictEnv must map variable names to strings`);
   }
   if ((c.sources?.length ?? 0) > 0 && (c.onSourceEdit?.length ?? 0) === 0) problems.push("sources is set but onSourceEdit runs nothing");
   return problems;
+}
+
+/**
+ * The linters an edited file gets: `lint` is one `{ files, command, strictEnv }`, or a list of them when a project
+ * lints its scripts and its stylesheets with different tools (ESLint and Stylelint).
+ * @param {Record<string, any>} gates
+ */
+export function lintsOf(gates) {
+  return gates?.lint === undefined ? [] : Array.isArray(gates.lint) ? gates.lint : [gates.lint];
 }
 
 /** The project's gates config; throws with every problem when it is malformed. */
@@ -101,8 +111,8 @@ export function projectPaths(files, root = process.cwd()) {
 }
 
 /**
- * The checks a changed file gets, for one file or many, absolute or relative: the files in `lint.files` that still
- * exist are linted in one `lint.command` call (the files are its last arguments), and `onSourceEdit` runs once when
+ * The checks a changed file gets, for one file or many, absolute or relative: for each linter in `lint`, the files in
+ * its `files` that still exist are linted in one call of its `command` (the files are its last arguments), and `onSourceEdit` runs once when
  * any file is in `sources` or `generated`. A generated output passes the staleness check when the build wrote it and
  * fails it when a hand did. The first failure as a message, or undefined when every check passes.
  * @param {string[]} files
@@ -110,9 +120,10 @@ export function projectPaths(files, root = process.cwd()) {
  */
 export function checkFiles(files, gates, { root = process.cwd(), exists = (file) => existsSync(join(root, file)), runCommand = run, runCommands = runAll } = {}) {
   const paths = projectPaths(files, root);
-  const lintable = gates.lint ? paths.filter((file) => matchesAny(file, gates.lint.files) && exists(file)) : [];
-  if (lintable.length > 0) {
-    const result = runCommand(`${gates.lint.command} ${lintable.map((file) => JSON.stringify(file)).join(" ")}`, gates.lint.strictEnv ?? {}, root);
+  for (const lint of lintsOf(gates)) {
+    const lintable = paths.filter((file) => matchesAny(file, lint.files) && exists(file));
+    if (lintable.length === 0) continue;
+    const result = runCommand(`${lint.command} ${lintable.map((file) => JSON.stringify(file)).join(" ")}`, lint.strictEnv ?? {}, root);
     if (result.status !== 0) return `The design lint failed for ${lintable.join(", ")}:\n${result.output}`;
   }
   const source = paths.find((file) => matchesAny(file, gates.sources) || matchesAny(file, gates.generated));

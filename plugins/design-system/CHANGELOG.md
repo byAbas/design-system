@@ -7,6 +7,23 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.12.0
+
+Stylesheets are linted like components.
+
+- **The lint reads CSS.** A raw colour in a stylesheet passed every gate. In cv-screener, the ESLint rules read only scripts. `no-raw-color` and `token-classes` now read stylesheets through ESLint's CSS language (`@eslint/css` 2.0, with `tailwind-csstree` for Tailwind's `@theme` and `@apply`):
+  - every declaration's value is checked, a hand-written custom property's included (`--color-brand: #d4a017` is a value outside the tokens);
+  - a named colour is reported in a colour property, or as a custom property's whole value, so `--font: Red Hat Display` passes;
+  - `token-classes` checks the classes of `@apply` against the generated theme;
+  - the rule names are the same as for scripts, so exemptions (`exemptionConfigs`) and ESLint's suppressions apply unchanged.
+- **Stylelint, where a project already runs it.** `stylelint-token-rules.mjs` is `no-raw-color` for Stylelint. It takes its judgement from `eslint-token-rules.mjs`, so the two linters agree. Run on the same stylesheet, Stylelint 17.15 and ESLint 9.39 reported the same four problems. Its suppressions (`--suppress=<rule>`) are experimental in 17.15 and do not fail on a stale one, and the harness says so.
+- **`lint` in `design-system/gates.json` may be a list**, one linter per kind of file, so an edited stylesheet reaches Stylelint and an edited component reaches ESLint. A single object still works.
+- `harness` extends the linter the project already runs, and never adds a second one for the same files.
+
+**Upgrading from 0.11.x**
+- Copy `eslint-token-rules.mjs` again, keeping its adapted lines, and the core's `gates.mjs`.
+- Add the stylesheet lint the harness skill describes, with `css` in `lint.files`. The first run may report raw colours in hand-written CSS. Fix them, or suppress them with a reason.
+
 ## 0.11.1
 
 Small things the project runs showed.

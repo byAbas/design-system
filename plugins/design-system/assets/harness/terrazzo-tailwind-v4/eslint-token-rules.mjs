@@ -16,6 +16,12 @@
 //   (`color: red;`). A word alone is not a colour: `"red"` as a variant name or
 //   in prose is left alone.
 //
+// Both rules read CSS too, through ESLint's CSS language (@eslint/css): in a
+// stylesheet, `no-raw-color` checks every declaration's value, a custom
+// property's included (`--brand: #d4a017` is a value outside the tokens), and
+// `token-classes` checks the classes of `@apply`. Generated outputs are not
+// linted: they are the tokens' own values.
+//
 // Why a lint and not the build: after the palette reset (`--color-*: initial`)
 // an unknown colour class produces no CSS and no error, so the element is
 // silently unstyled; an arbitrary value does produce CSS, which is worse.
@@ -34,6 +40,12 @@
 //   const strict = process.env.DESIGN_LINT_STRICT === "1" || process.env.CI === "true";
 //   const gates = JSON.parse(readFileSync("design-system/gates.json", "utf8"));
 //   export default [designSystemPlugin.configs[strict ? "strict" : "recommended"], ...exemptionConfigs(gates)];
+// and for stylesheets, with the project's @eslint/css (and tailwind-csstree for Tailwind's syntax):
+//   import css from "@eslint/css";
+//   import { tailwind4 } from "tailwind-csstree";
+//   { files: ["src/**/*.css"], ignores: gates.generated, plugins: { css, "design-system": designSystemPlugin },
+//     language: "css/css", languageOptions: { customSyntax: tailwind4, tolerant: true },
+//     rules: designSystemPlugin.configs[strict ? "strict" : "recommended"].rules },
 //
 // Known violations a project has not fixed yet go in ESLint's own bulk
 // suppressions (`eslint --suppress-rule design-system/no-raw-color`), the same
@@ -316,6 +328,21 @@ export function namedColorInDeclarations(text) {
 }
 
 /**
+ * What a stylesheet declaration states that the tokens do not know, or undefined: a hex value or a colour function
+ * with a literal channel in any value; a named colour in a colour property; and, for a custom property, a value that
+ * is a named colour on its own (`--brand: rebeccapurple`), since a custom property's words are not all colours
+ * (`--font: Red Hat Display`).
+ * @param {string} property the declaration's property, `color` or `--brand`
+ * @param {string} value its value as written
+ * @returns {{ messageId: "rawColor" } | { messageId: "namedColor", data: { name: string } } | undefined}
+ */
+export function cssDeclarationProblem(property, value) {
+  if (hasRawColor(value)) return { messageId: "rawColor" };
+  const name = property.startsWith("--") ? (NAMED_COLORS.has(value.trim().toLowerCase()) ? value.trim().toLowerCase() : undefined) : isColorProperty(property) ? namedColorIn(value) : undefined;
+  return name ? { messageId: "namedColor", data: { name } } : undefined;
+}
+
+/**
  * The named colour a string node gives CSS, from where it stands: the value of a colour property in an object, a
  * colour attribute of a lowercase (HTML or SVG) element, or a declaration inside the text. Undefined otherwise.
  * @param {any} node a string Literal or a TemplateLiteral
@@ -413,16 +440,21 @@ export const tokenClasses = {
   create(context) {
     const options = { ...DEFAULTS, ...(context.options[0] ?? {}) };
     const tokens = loadTokens(context.cwd, options);
-    const check = (root) => {
-      for (const { node, text } of stringsOf(root, options.helpers)) {
-        for (const [raw] of text.matchAll(/\S+/g)) {
-          const parsed = parseClass(raw);
-          const verdict = judgeClass(parsed.base, tokens, parsed.modifier);
-          if (verdict) context.report({ node, messageId: verdict.messageId, data: { class: raw, kind: verdict.kind, example: verdict.example } });
-        }
+    const checkText = (node, text) => {
+      for (const [raw] of text.matchAll(/\S+/g)) {
+        const parsed = parseClass(raw);
+        const verdict = judgeClass(parsed.base, tokens, parsed.modifier);
+        if (verdict) context.report({ node, messageId: verdict.messageId, data: { class: raw, kind: verdict.kind, example: verdict.example } });
       }
     };
+    const check = (root) => {
+      for (const { node, text } of stringsOf(root, options.helpers)) checkText(node, text);
+    };
     return {
+      // A stylesheet's `@apply bg-surface text-on-surface` lists classes as markup does.
+      Atrule(node) {
+        if (node.name === "apply" && node.prelude) checkText(node, context.sourceCode.getText(node.prelude));
+      },
       JSXAttribute(node) {
         if (["className", "class"].includes(node.name?.name) && node.value) check(node.value);
       },
@@ -434,6 +466,12 @@ export const tokenClasses = {
 };
 
 const TEST_FILE = /(^|[\\/])(__tests__|__mocks__)[\\/]|\.(test|spec)\.[cm]?[jt]sx?$/;
+
+/** What `no-raw-color` says, shared with the Stylelint rule (stylelint-token-rules.mjs), `{{name}}` filled in by each. */
+export const RAW_COLOR_MESSAGES = {
+  rawColor: "A raw colour in source: the tokens do not know it and no other theme can change it. Use a colour role (a `bg-`/`text-` token class, or `var(--color-…)`); a new colour becomes a role in the token files first.",
+  namedColor: "`{{name}}` is a CSS named colour: the tokens do not know it and no other theme can change it. Use a colour role (a `bg-`/`text-` token class, or `var(--color-…)`); a new colour becomes a role in the token files first.",
+};
 const HOLE = "\u0000";
 
 /** @type {import("eslint").Rule.RuleModule} */
@@ -441,15 +479,17 @@ export const noRawColor = {
   meta: {
     type: "problem",
     docs: { description: "No raw colour values in source: every colour traces to a design token" },
-    messages: {
-      rawColor: "A raw colour in source: the tokens do not know it and no other theme can change it. Use a colour role (a `bg-`/`text-` token class, or `var(--color-…)`); a new colour becomes a role in the token files first.",
-      namedColor: "`{{name}}` is a CSS named colour: the tokens do not know it and no other theme can change it. Use a colour role (a `bg-`/`text-` token class, or `var(--color-…)`); a new colour becomes a role in the token files first.",
-    },
+    messages: RAW_COLOR_MESSAGES,
     schema: [],
   },
   create(context) {
     if (TEST_FILE.test(context.filename)) return {};
     return {
+      // A stylesheet's declarations, through ESLint's CSS language; a JavaScript file has none.
+      Declaration(node) {
+        const problem = node.value && cssDeclarationProblem(node.property, context.sourceCode.getText(node.value));
+        if (problem) context.report({ node, ...problem });
+      },
       Literal(node) {
         if (typeof node.value !== "string") return;
         if (hasRawColor(node.value)) return context.report({ node, messageId: "rawColor" });

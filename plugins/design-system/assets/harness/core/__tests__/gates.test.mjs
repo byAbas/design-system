@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { STAGES, checkFiles, gatesProblems, generatedReason, globToRegExp, isGitCommit, matchesAny, projectPaths } from "../gates.mjs";
+import { STAGES, checkFiles, gatesProblems, lintsOf, generatedReason, globToRegExp, isGitCommit, matchesAny, projectPaths } from "../gates.mjs";
 
 describe("globToRegExp", () => {
   it("lets ** span folders, including none", () => {
@@ -100,6 +100,15 @@ describe("checkFiles", () => {
     const { calls, options } = recorder();
     assert.equal(checkFiles(["src/a.tsx", "src/b.tsx", "src/deleted.tsx", "README.md"], gates, options), undefined);
     assert.deepEqual(calls, [{ command: 'eslint "src/a.tsx" "src/b.tsx"', env: { DESIGN_LINT_STRICT: "1" } }]);
+  });
+
+  it("runs each linter of a list on its own files: scripts with ESLint, stylesheets with Stylelint", () => {
+    const { calls, options } = recorder();
+    const two = { ...gates, lint: [{ files: ["src/**/*.tsx"], command: "eslint" }, { files: ["src/**/*.css"], command: "stylelint" }] };
+    assert.equal(checkFiles(["src/a.tsx", "src/a.css", "README.md"], two, options), undefined);
+    assert.deepEqual(calls, [{ command: 'eslint "src/a.tsx"', env: {} }, { command: 'stylelint "src/a.css"', env: {} }]);
+    assert.deepEqual(lintsOf({}), []);
+    assert.deepEqual(gatesProblems({ lint: [{ files: ["a"], command: "x" }, { files: ["b"] }] }), ["lint[1] needs files (globs) and command (the linter, which receives the edited files as its last arguments)"]);
   });
 
   it("runs onSourceEdit once however many sources changed", () => {

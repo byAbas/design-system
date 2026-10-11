@@ -97,7 +97,7 @@ A project with many findings cannot make its gates block on all of them at once,
 - A suppressed problem does not fail the check. A new one does.
 - A suppressed problem that no longer occurs fails the check until `--prune-suppressions` removes it, so the file only shrinks.
 - A problem is recorded by a key with its rule, its context and its subject, and no value: `tiers/contrast-pairs@light:components.button-whatsapp`. The key stays the same while the ratio moves, so a partial fix does not need a new suppression.
-- The code lint keeps its own, ESLint's `eslint-suppressions.json` (`eslint --suppress-rule design-system/no-raw-color`, `--prune-suppressions`).
+- The code lint keeps its own: ESLint's `eslint-suppressions.json` (`eslint --suppress-rule design-system/no-raw-color`, `--prune-suppressions`), for scripts and the stylesheets ESLint's CSS language lints; Stylelint's `stylelint-suppressions.json` (`stylelint --suppress=design-system/no-raw-color`) where Stylelint lints them. Stylelint's are experimental in 17.15 and do not fail on a stale one, so run `--suppress` again after a fix.
 - The audit records a suppressed problem as `accepted`, with its reason (`report.md`, Status). Accepted findings still count: a part with one is `partial`.
 
 Atlassian's token contrast test works the same way: it asserts that the failures equal a checked-in registry of known violations.
