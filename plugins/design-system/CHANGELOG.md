@@ -7,6 +7,18 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.17.0
+
+A component's contract can live beside its code. From euaijobs (2026-11-16): its `DESIGN.md` is 1,636 lines, 1,077 of them the `components:` contract of 291 keys, so the first read by an agent returns contract and no rule; and the contract check read the contract from the rules document's front matter alone.
+
+- **The contract in parts** (`scripts/check-rules-contract.mjs`; `references/conventions.md`, The contract): a component may hold its own keys in `<Name>.design.yaml` beside its code, `components:` and nothing else. The check reads the front matter and every contract file under the code folders (`tokens.code`) as one contract: the same rules, coverage and contrast pairs, and a variant in one place may extend a key in another. A project with no contract file is checked as before.
+- **Three rules for a contract file:** it holds only `components:` (`docs/rules-hold-no-values`); its keys are its own component's, by the rule that names a key after its file, a route's file included (`tiers/components-read-roles`); and a key is stated once, in the rules document or in one file.
+- **The rubric** (`references/rubric.md`, `tiers/components-read-roles` and `format/machine-readable-contract`) reads the contract in both places.
+- **`harness`** (`assets/harness/core/design-tokens.gates.json`; `skills/harness/SKILL.md`): `sources` names `**/*.design.yaml`, so an edit to a contract file runs the token checks.
+- **Tests:** `mergedContract` and `contractFiles` (`scripts/__tests__/check-rules-contract.test.mjs`).
+- **Proof:** a copy of euaijobs, 2026-11-16. With the contract whole, the check reports what 0.16.0 reports: 69 component files, 3,456 pairs, 12 suppressed. With 261 of the 291 keys moved by a script into 67 files and 30 left in `DESIGN.md`, which goes from 1,636 lines to 675, it reports the same. 0.16.0's check on that split contract fails 66 files for having no key and measures 360 pairs.
+- **Not proved yet:** no project has committed a split contract. `scan.mjs` and the audit's agent do not list contract files, and no skill moves the keys: the copy's were moved by a script of that session. The design.md format's own linter reads a document's front matter, not these files.
+
 ## 0.16.0
 
 A catch is seen, and kept. From ispanviza-web (2026-11-16), where the harness was installed and recorded for a demonstration: the agent wrote `bg-[#3b82f6]` because the person asked for it, `check-on-edit` reported it at once, and the person watching still asked whether the hook had caught anything. The report was a grey block that began with the hook's own command line and scrolled away in seconds, and nothing recorded that it had happened.

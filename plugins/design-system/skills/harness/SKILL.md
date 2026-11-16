@@ -75,7 +75,7 @@ Before configuring a tool, confirm its options in the documentation for the inst
 
 Write `design-system/gates.json`, starting from `${CLAUDE_PLUGIN_ROOT}/assets/harness/core/design-tokens.gates.json`. A project with a 0.3.x `design-tokens.gates.json` at the root moves it there. It is the one place the gates read from:
 - `generated`: globs of the outputs an agent may never edit;
-- `sources`: globs of the files whose edit runs `onSourceEdit` (tokens, rules document, build template and config);
+- `sources`: globs of the files whose edit runs `onSourceEdit` (tokens, rules document, component contract files, build template and config);
 - `onSourceEdit`: commands run after such an edit;
 - `build`: the one command that rewrites the generated outputs (for example `npm run -s tokens:build`). The message that stops an edit to an output names it. It is never a check: a `--check` command rewrites nothing, and an agent told to rebuild with it runs it and edits the output again. Without a build command, leave it out, and the message names none;
 - `lint`: `files` and `command`, for the linter an edited file gets, and `strictEnv`, the variables that make its rules errors. A list of them when scripts and stylesheets have different linters (ESLint and Stylelint);
@@ -96,7 +96,7 @@ Every path and command in it is the project's own. None is copied from the examp
 | File | Rules |
 |---|---|
 | `scripts/check-tokens.mjs` | DTCG validity (every token file against the DTCG 2025.10 JSON Schema, each value against its inherited type; a modifier needs two or more contexts), palette literal, roles alias the palette or are derived, derived values match their rule (lightness, mix or alpha), every context complete, text styles alias the fonts |
-| `scripts/check-rules-contract.mjs` | The rules document's front matter holds no values, imports the resolver, its contract names existing roles, every component file that reads roles has a key (`conventions.md`, The contract), and each component's text meets WCAG 2.1 AA on its background in every context. It reads the front matter with the project's `yaml` |
+| `scripts/check-rules-contract.mjs` | The rules document's front matter holds no values, imports the resolver, its contract names existing roles, every component file that reads roles has a key (`conventions.md`, The contract), and each component's text meets WCAG 2.1 AA on its background in every context. It reads the front matter, and each component's contract file (`<Name>.design.yaml`) with it, with the project's `yaml` |
 | `scripts/lib/*.mjs` and `scripts/lib/schemas/`: `dtcg.mjs`, `dtcg-schema.mjs`, `json-schema.mjs`, `color.mjs`, `project-modules.mjs`, `glob.mjs`, `suppressions.mjs`, `figma.mjs` | The DTCG reader and the format's own JSON Schema with its validator, the colour maths, the shared settings and exemptions, glob matching, the suppressions, and the Figma mapping the checks use |
 | `scripts/figma-export.mjs` | When the project exports to Figma: `--check` fails when `design-system/figma/` is behind the tokens (`/design-system:figma-export`) |
 

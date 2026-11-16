@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
-import { componentFiles, contractPrefix, contractProblems, contrastProblems, coverageProblems, frontMatterText, isLargeText, kebab, roleReader, withVariants } from "../check-rules-contract.mjs";
+import { componentFiles, contractFiles, contractPrefix, contractProblems, contrastProblems, coverageProblems, frontMatterText, isLargeText, kebab, mergedContract, roleReader, withVariants } from "../check-rules-contract.mjs";
 import { TOKEN_DEFAULTS } from "../lib/project-modules.mjs";
 
 const tokenIds = new Set(["colors.surface", "colors.on-surface", "typography.body-md", "rounded.md", "palette.gray-1"]);
@@ -178,6 +178,77 @@ describe("componentFiles", () => {
     }
     try {
       assert.deepEqual(componentFiles(root, ["src", "app", "missing"]).map((file) => file.path), ["app/about/page.tsx", "app/Nav.vue", "src/Card.tsx"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("mergedContract", () => {
+  const button = { path: "components/ui/Button/Button.design.yaml", data: { components: { "button-primary": { textColor: "{colors.on-surface}" }, "button-primary-hover": { backgroundColor: "{colors.surface}" } } } };
+
+  it("reads the rules document and each component contract file as one contract", () => {
+    const { components, problems } = mergedContract(valid, [button], "DESIGN.md");
+    assert.deepEqual(problems, []);
+    assert.deepEqual(Object.keys(components), ["page", "button-primary", "button-primary-hover"]);
+    assert.deepEqual(contractProblems({ ...valid, components }, tokenIds, TOKEN_DEFAULTS), []);
+  });
+
+  it("is the front matter alone when no component has a contract file", () => {
+    assert.deepEqual(mergedContract(valid, [], "DESIGN.md"), { components: valid.components, problems: [] });
+    assert.deepEqual(mergedContract({ name: "App" }, [], "DESIGN.md"), { components: {}, problems: [] });
+  });
+
+  it("lets a variant in one place extend a key in another", () => {
+    const front = { ...valid, components: { button: { backgroundColor: "{colors.surface}", textColor: "{colors.on-surface}" } } };
+    const hover = { path: "components/ui/Button/Button.design.yaml", data: { components: { "button-hover": { textColor: "{colors.on-surface}" } } } };
+    const { components } = mergedContract(front, [hover], "DESIGN.md");
+    assert.deepEqual(withVariants(components)["button-hover"].backgroundColor, { value: "{colors.surface}", from: "button" });
+  });
+
+  it("refuses a key stated twice, in the rules document and a file or in two files", () => {
+    const front = { ...valid, components: { ...valid.components, "button-primary": { textColor: "{colors.on-surface}" } } };
+    assert.deepEqual(mergedContract(front, [button], "DESIGN.md").problems, ["tiers/components-read-roles: components.button-primary is in DESIGN.md and in components/ui/Button/Button.design.yaml; a key is stated once"]);
+    const copy = { ...button, path: "components/ui/Button/index.design.yaml" };
+    assert.equal(mergedContract(valid, [button, copy], "DESIGN.md").problems.length, 2);
+  });
+
+  it("refuses a key that is not its file\x27s component\x27s", () => {
+    const stray = { path: "components/ui/Tag/Tag.design.yaml", data: { components: { tag: { textColor: "{colors.on-surface}" }, "button-ghost": { textColor: "{colors.on-surface}" }, tags: { textColor: "{colors.on-surface}" } } } };
+    assert.deepEqual(mergedContract(valid, [stray], "DESIGN.md").problems, [
+      "tiers/components-read-roles: components/ui/Tag/Tag.design.yaml: components.button-ghost does not start with tag; a component\x27s contract file holds its own keys",
+      "tiers/components-read-roles: components/ui/Tag/Tag.design.yaml: components.tags does not start with tag; a component\x27s contract file holds its own keys",
+    ]);
+  });
+
+  it("gives a route\x27s contract file its route\x27s keys", () => {
+    const page = { path: "app/about/page.design.yaml", data: { components: { "about-page": { textColor: "{colors.on-surface}" } } } };
+    assert.deepEqual(mergedContract(valid, [page], "DESIGN.md").problems, []);
+  });
+
+  it("refuses a contract file that holds anything but `components:`, or none", () => {
+    const values = { path: "components/Card/Card.design.yaml", data: { colors: { primary: "#00aa88" }, components: { card: { textColor: "{colors.on-surface}" } } } };
+    assert.deepEqual(mergedContract(valid, [values], "DESIGN.md").problems, ["docs/rules-hold-no-values: components/Card/Card.design.yaml: `colors:` is not the contract; a component\x27s contract file holds `components:` and nothing else"]);
+    assert.deepEqual(mergedContract(valid, [{ path: "components/Card/Card.design.yaml", data: ["card"] }], "DESIGN.md").problems, ["tiers/components-read-roles: components/Card/Card.design.yaml is not a map; a component\x27s contract file holds `components:`"]);
+    assert.deepEqual(mergedContract(valid, [{ path: "components/Card/Card.design.yaml", data: { components: "card" } }], "DESIGN.md").problems, ["tiers/components-read-roles: components/Card/Card.design.yaml: `components:` is not a map of component → property → token"]);
+  });
+});
+
+describe("contractFiles", () => {
+  it("lists the component contract files under the code folders, and nothing else", () => {
+    const root = mkdtempSync(join(tmpdir(), "design-system-contract-"));
+    const write = (file, text = "components: {}\n") => {
+      mkdirSync(dirname(join(root, file)), { recursive: true });
+      writeFileSync(join(root, file), text);
+    };
+    try {
+      write("components/ui/Button/Button.design.yaml");
+      write("components/ui/Tag/Tag.design.yml");
+      write("components/ui/Button/Button.tsx", "export {};\n");
+      write("components/ui/Button/Button.design.md", "# Button\n");
+      write("components/node_modules/x/X.design.yaml");
+      write("lib/Other.design.yaml");
+      assert.deepEqual(contractFiles(root, ["components", "missing"]).map((file) => file.path), ["components/ui/Button/Button.design.yaml", "components/ui/Tag/Tag.design.yml"]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -18,6 +18,11 @@
 //   does not state from the component its key extends (`button-primary`), as
 //   the design.md format reads variants; a disabled variant is exempt.
 //
+// The contract is the rules document's `components:` and, with it, every component contract file under
+// the code folders: `<Name>.design.yaml` beside the component's code, which holds `components:` and
+// nothing else, with that component's own keys (references/conventions.md, The contract). The check
+// reads them as one contract, and a key is stated once.
+//
 //   node check-rules-contract.mjs [--suppress-all] [--prune-suppressions]
 //   exit 1 and one line per problem
 //
@@ -156,8 +161,8 @@ export function coverageProblems(keys, files, readsRoles) {
   return { problems, reading };
 }
 
-/** The component files under the code folders, relative to the root, with their text; tests and stories left out. */
-export function componentFiles(root, folders) {
+/** The files under the code folders that `accept` takes, relative to the root, with their text, in path order. */
+function filesUnder(root, folders, accept) {
   const files = [];
   const walk = (dir) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -167,11 +172,72 @@ export function componentFiles(root, folders) {
         continue;
       }
       const file = relative(root, path).split("\\").join("/");
-      if (entry.isFile() && COMPONENT_FILE.test(file) && !NOT_A_COMPONENT.test(file)) files.push({ path: file, text: readFileSync(path, "utf8") });
+      if (entry.isFile() && accept(file)) files.push({ path: file, text: readFileSync(path, "utf8") });
     }
   };
   for (const folder of folders) if (existsSync(join(root, folder))) walk(join(root, folder));
   return files.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+/** The component files under the code folders, relative to the root, with their text; tests and stories left out. */
+export function componentFiles(root, folders) {
+  return filesUnder(root, folders, (file) => COMPONENT_FILE.test(file) && !NOT_A_COMPONENT.test(file));
+}
+
+// ---------- the contract in parts: a component's own contract file ----------
+
+/** A component's contract file: `<Name>.design.yaml` beside its code (`Button/Button.design.yaml`). */
+const CONTRACT_FILE = /\.design\.ya?ml$/;
+
+/** The component contract files under the code folders, relative to the root, with their text. */
+export function contractFiles(root, folders) {
+  return filesUnder(root, folders, (file) => CONTRACT_FILE.test(file));
+}
+
+const isMap = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * The one contract of a project: the rules document's `components:` and each component contract file's, merged,
+ * with every broken rule of the parts, one sentence each, prefixed with its rubric rule id. A contract file holds
+ * `components:` and nothing else; its keys are its own component's, by the rule that names a key after its file
+ * (`Button.design.yaml` holds `button` and `button-*`); and a key is stated once, in one place.
+ * @param {Record<string, unknown>} front the parsed front matter
+ * @param {{ path: string, data: unknown }[]} files each contract file, parsed
+ * @param {string} rulesDocument the rules document's path, for the messages
+ * @returns {{ components: Record<string, Record<string, unknown>>, problems: string[] }}
+ */
+export function mergedContract(front, files, rulesDocument) {
+  const problems = [];
+  const components = {};
+  const place = {};
+  for (const [key, properties] of Object.entries(isMap(front.components) ? front.components : {})) {
+    components[key] = properties;
+    place[key] = rulesDocument;
+  }
+  for (const { path, data } of files) {
+    if (!isMap(data)) {
+      problems.push(`tiers/components-read-roles: ${path} is not a map; a component's contract file holds \`components:\``);
+      continue;
+    }
+    for (const key of Object.keys(data)) {
+      if (key !== "components") problems.push(`docs/rules-hold-no-values: ${path}: \`${key}:\` is not the contract; a component's contract file holds \`components:\` and nothing else`);
+    }
+    if (!isMap(data.components)) {
+      problems.push(`tiers/components-read-roles: ${path}: \`components:\` is not a map of component → property → token`);
+      continue;
+    }
+    const prefix = contractPrefix(path);
+    for (const [key, properties] of Object.entries(data.components)) {
+      if (key !== prefix && !key.startsWith(`${prefix}-`)) problems.push(`tiers/components-read-roles: ${path}: components.${key} does not start with ${prefix}; a component's contract file holds its own keys`);
+      if (place[key]) {
+        problems.push(`tiers/components-read-roles: components.${key} is in ${place[key]} and in ${path}; a key is stated once`);
+        continue;
+      }
+      components[key] = properties;
+      place[key] = path;
+    }
+  }
+  return { components, problems };
 }
 
 /** The CSS Fonts weight keywords DTCG accepts for fontWeight (Format §8.4), by number. */
@@ -279,22 +345,36 @@ async function main() {
   }
   const tokenIds = new Set(Object.values(contexts).flatMap((tokens) => Object.keys(tokens)));
   const front = parseYaml(yaml) ?? {};
-  const contrast = contrastProblems(front, contexts);
-  const keys = Object.keys(typeof front.components === "object" && front.components !== null ? front.components : {});
+  // The contract's parts: a component's own file is read with the rules document's front matter, as one contract.
+  const partProblems = [];
+  const parts = [];
+  for (const { path, text } of contractFiles(root, settings.code)) {
+    try {
+      parts.push({ path, data: parseYaml(text) ?? {} });
+    } catch (error) {
+      partProblems.push(`tiers/components-read-roles: ${path} is not valid YAML: ${String(error.message).split("\n")[0]}`);
+    }
+  }
+  const merged = mergedContract(front, parts, settings.rulesDocument);
+  // A `components:` in the front matter that is not a map is reported by contractProblems, so it is passed on as it is.
+  const contract = { ...front, components: front.components !== undefined && !isMap(front.components) ? front.components : merged.components };
+  const contrast = contrastProblems(contract, contexts);
+  const keys = Object.keys(merged.components);
   const roleNames = [...new Set(Object.values(contexts).flatMap((tokens) => Object.keys(tokens)).filter((id) => id.startsWith(`${settings.roles}.`)).map((id) => id.slice(settings.roles.length + 1)))];
   const files = componentFiles(root, settings.code).filter((file) => !isExempt(file.path, "tiers/components-read-roles", exemptions));
   const coverage = coverageProblems(keys, files, roleReader(roleNames));
-  const found = [...contractProblems(front, tokenIds, settings), ...coverage.problems, ...contrast.problems];
+  const found = [...contractProblems(contract, tokenIds, settings), ...partProblems, ...merged.problems, ...coverage.problems, ...contrast.problems];
   const { failing: problems, suppressed, notes } = gateProblems(root, argv, found, { contexts: Object.keys(contexts), rules: RULES });
   for (const note of notes) console.error(`note: ${note}`);
   for (const pair of contrast.unmeasured) console.error(`note: not measured, ${pair}; its contrast depends on what it is painted over`);
   const checked = `${coverage.reading} component files that read roles (in ${settings.code.join(", ") || "no folder"}) and ${contrast.measured} contrast pairs in ${Object.keys(contexts).join(", ") || "no context"}`;
+  const documents = parts.length > 0 ? `${settings.rulesDocument} and ${parts.length} component contract file${parts.length === 1 ? "" : "s"}` : settings.rulesDocument;
   const verdict = suppressed.length > 0 ? `${suppressed.length} known problems are suppressed (design-system/suppressions.json), and nothing else fails` : "every file has a contract key, and every pair meets WCAG 2.1 AA";
   if (problems.length > 0) {
-    console.error(`${settings.rulesDocument} breaks the rules document's contract:\n${problems.map((problem) => `  - ${problem}`).join("\n")}\ncheck-rules-contract: checked ${checked}`);
+    console.error(`${documents} break${parts.length > 0 ? "" : "s"} the rules document's contract:\n${problems.map((problem) => `  - ${problem}`).join("\n")}\ncheck-rules-contract: checked ${checked}`);
     return 1;
   }
-  console.log(`check-rules-contract: checked ${settings.rulesDocument}, ${checked}; ${verdict}`);
+  console.log(`check-rules-contract: checked ${documents}, ${checked}; ${verdict}`);
   return 0;
 }
 

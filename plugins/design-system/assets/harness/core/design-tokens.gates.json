@@ -1,6 +1,6 @@
 {
   "generated": ["src/styles/*.generated.css"],
-  "sources": ["design-system/tokens/**/*.json", "DESIGN.md", "design-system/theme.template.css", "terrazzo.config.ts"],
+  "sources": ["design-system/tokens/**/*.json", "DESIGN.md", "**/*.design.yaml", "design-system/theme.template.css", "terrazzo.config.ts"],
   "onSourceEdit": ["npm run -s tokens:check"],
   "build": "npm run -s tokens:build",
   "lint": {
