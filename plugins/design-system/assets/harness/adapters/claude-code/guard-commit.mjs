@@ -4,8 +4,8 @@
 // commit runs the same stage through the git pre-commit hook.
 
 import { STAGES, isGitCommit, readGates } from "../../../design-system/harness/gates.mjs";
-import { hookInput, report, shellCommand } from "./hook-io.mjs";
+import { caller, hookInput, report, shellCommand } from "./hook-io.mjs";
 
-if (!isGitCommit(shellCommand(hookInput()))) report(undefined);
-const problem = STAGES["before-commit"](readGates(), []);
-report(problem && `Commit refused: ${problem}`);
+const input = hookInput();
+if (!isGitCommit(shellCommand(input))) report(undefined);
+report(STAGES["before-commit"](readGates(), [], caller(input)));

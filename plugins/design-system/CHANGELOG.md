@@ -7,6 +7,18 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.16.0
+
+A catch is seen, and kept. From ispanviza-web (2026-11-16), where the harness was installed and recorded for a demonstration: the agent wrote `bg-[#3b82f6]` because the person asked for it, `check-on-edit` reported it at once, and the person watching still asked whether the hook had caught anything. The report was a grey block that began with the hook's own command line and scrolled away in seconds, and nothing recorded that it had happened.
+
+- **The first line** (`assets/harness/core/gates.mjs`, `headline`): a stage's failure starts with one sentence, `Design-system gate caught <files>: <rule ids>.` or `Design-system gate stopped the commit: <rule ids>.`, and the project's own path is taken out of the tool's output. The reason for an edit to a generated file is unchanged. `guard-commit` no longer adds `Commit refused:`; the first line says it.
+- **The person is told** (`assets/harness/adapters/claude-code/hook-io.mjs`): every answer that reports a catch carries that sentence as `systemMessage`, the hook field Claude Code shows to the person, beside the message the agent reads.
+- **The gate log** (`gates.mjs`; `references/conventions.md`, What a catch says, and the gate log): every catch is one JSON line in `design-system/gate-log.jsonl`, with its stage, files, rule ids, caller and session, and a `fixed` line follows when a caught file passes. The core writes it, so the git hook's catches and another agent's are in it too. It is local: in `.gitignore`, never written in CI, off with `"log": false`, and cut to its newer half at 1 MB.
+- **The summary** (`run-gates.mjs summary`; `adapters/claude-code/summary-on-stop.mjs`, a `Stop` hook): what was caught since the last summary, how many files were fixed, which are still open, and how many commits were stopped. An open file is checked again first, so a fix made outside the gates counts. With nothing caught it says nothing, and it never keeps the agent from stopping.
+- **`harness`** (`skills/harness/SKILL.md`, Step 4 and Step 5) copies the new adapter, merges the `Stop` entry, adds the log to `.gitignore`, and after the proofs runs the summary and asks whether to clear the log.
+- **Tests:** the adapters run end to end in a temporary project, as Claude Code runs them, with the hook's JSON on stdin (`adapters/claude-code/__tests__/adapters.test.mjs`).
+- **Not proved yet:** no session of Claude Code has run with it. The hooks reference says `systemMessage` is shown to the person and that the fields of a hook that exits 2 are read; whether the line appears for `PostToolUse`, `PreToolUse` and `Stop`, and how, is not seen. An installed harness gets none of this until it is upgraded.
+
 ## 0.15.1
 
 A finding for a file keeps one id from one audit to the next. From two audits of euaijobs at one commit (2026-11-16): the same problem had two ids (`featured-companies.ts#` and `featured-companies.ts#FEATURED_COMPANIES`), and of six files with two matches each run reported a different one, so the comparison showed resolved and new findings where the code had not changed.

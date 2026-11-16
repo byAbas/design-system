@@ -14,7 +14,8 @@
 // a generated output is caught here: the core runs the staleness check for it.
 
 import { STAGES, readGates } from "../../../design-system/harness/gates.mjs";
-import { changedPaths, hookInput, report } from "./hook-io.mjs";
+import { caller, changedPaths, hookInput, report } from "./hook-io.mjs";
 
-const paths = changedPaths(hookInput());
-report(paths.length === 0 ? undefined : STAGES["check-files"](readGates(), paths));
+const input = hookInput();
+const paths = changedPaths(input);
+report(paths.length === 0 ? undefined : STAGES["check-files"](readGates(), paths, caller(input)));

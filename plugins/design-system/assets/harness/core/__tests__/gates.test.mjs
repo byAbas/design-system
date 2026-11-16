@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it } from "node:test";
-import { STAGES, checkFiles, gatesProblems, lintsOf, generatedReason, globToRegExp, isGitCommit, matchesAny, projectPaths } from "../gates.mjs";
+import { LOG_FILE, STAGES, checkFiles, gatesProblems, headline, lintsOf, generatedReason, globToRegExp, isGitCommit, logPath, matchesAny, openCatches, projectPaths, readLog, rulesIn, summarize } from "../gates.mjs";
 
 describe("globToRegExp", () => {
   it("lets ** span folders, including none", () => {
@@ -147,11 +150,159 @@ describe("STAGES", () => {
     const passing = runner();
     assert.equal(STAGES["before-commit"](gates, [], passing.options), undefined);
     assert.deepEqual(passing.calls, [{ commands: ["lint", "typecheck"], env: { DESIGN_LINT_STRICT: "1" } }]);
-    assert.equal(STAGES["on-source-edit"](gates, [], runner("tokens:check").options), "`tokens:check` failed:\n2 errors");
+    assert.equal(STAGES["on-source-edit"](gates, [], runner("tokens:check").options), "Design-system gate caught the token sources.\n`tokens:check` failed:\n2 errors");
+    assert.equal(STAGES["before-commit"](gates, [], runner("lint").options), "Design-system gate stopped the commit.\n`lint` failed:\n2 errors");
   });
 
   it("gives the file stages the paths they were called with", () => {
     assert.match(STAGES["check-generated"](gates, ["/repo/out/theme.css"], { root: "/repo" }), /^out\/theme\.css is generated/);
     assert.equal(STAGES["check-files"](gates, ["README.md"], { root: "/repo" }), undefined);
+  });
+});
+
+describe("the catch's first line", () => {
+  it("names the rules a tool's output states, each once", () => {
+    assert.deepEqual(rulesIn("94:13 error … design-system/token-classes\n94:13 error … design-system/no-raw-color\n95:1 error … design-system/no-raw-color"), ["design-system/token-classes", "design-system/no-raw-color"]);
+    assert.deepEqual(rulesIn("2 errors"), []);
+  });
+
+  it("says what was caught in one sentence", () => {
+    assert.equal(headline("check-files", ["src/a.tsx"], ["design-system/no-raw-color"]), "Design-system gate caught src/a.tsx: design-system/no-raw-color.");
+    assert.equal(headline("before-commit", [], []), "Design-system gate stopped the commit.");
+    assert.equal(headline("on-source-edit", [], ["design-system/x"]), "Design-system gate caught the token sources: design-system/x.");
+  });
+});
+
+describe("the gate log", () => {
+  const gates = { lint: { files: ["src/**/*.tsx"], command: "eslint" }, beforeCommit: ["lint"], generated: ["out/*.css"] };
+  /** A project folder with design-system/ in it, and options whose linter fails for the files in `failing`. */
+  const project = (failing = new Set()) => {
+    const root = mkdtempSync(join(tmpdir(), "gate-log-"));
+    mkdirSync(join(root, "design-system"));
+    let tick = 0;
+    const options = {
+      root,
+      env: {},
+      now: () => new Date(Date.UTC(2026, 10, 16, 12, 0, tick++)),
+      exists: () => true,
+      runCommand: (command) => {
+        const bad = [...failing].filter((file) => command.includes(`"${file}"`));
+        return bad.length > 0 ? { status: 1, output: bad.map((file) => `${root}/${file}\n  1:1  error  A raw colour  design-system/no-raw-color`).join("\n") } : { status: 0, output: "" };
+      },
+      runCommands: () => (failing.has("commit") ? { command: "lint", output: "1:1 error design-system/no-raw-color" } : undefined),
+    };
+    return { root, options, failing, log: () => readLog(join(root, LOG_FILE)), done: () => rmSync(root, { recursive: true, force: true }) };
+  };
+
+  it("puts the headline first and takes the project's path out of the tool's output", () => {
+    const { options, done } = project(new Set(["src/a.tsx"]));
+    assert.equal(STAGES["check-files"](gates, ["src/a.tsx"], options), "Design-system gate caught src/a.tsx: design-system/no-raw-color.\nThe design lint failed for src/a.tsx:\nsrc/a.tsx\n  1:1  error  A raw colour  design-system/no-raw-color");
+    done();
+  });
+
+  it("writes a catch with its files, rules, caller and session, and the fix when the file passes", () => {
+    const { options, failing, log, done } = project(new Set(["src/a.tsx"]));
+    STAGES["check-files"](gates, ["src/a.tsx"], { ...options, by: "an-agent", session: "s1" });
+    assert.deepEqual(log(), [{ at: "2026-11-16T12:00:00.000Z", stage: "check-files", result: "caught", files: ["src/a.tsx"], rules: ["design-system/no-raw-color"], by: "an-agent", session: "s1" }]);
+    assert.deepEqual([...openCatches(log())], [["src/a.tsx", ["design-system/no-raw-color"]]]);
+
+    failing.clear();
+    assert.equal(STAGES["check-files"](gates, ["src/a.tsx"], options), undefined);
+    assert.deepEqual(log()[1], { at: "2026-11-16T12:00:01.000Z", stage: "check-files", result: "fixed", files: ["src/a.tsx"], by: "command-line" });
+    assert.equal(openCatches(log()).size, 0);
+    STAGES["check-files"](gates, ["src/a.tsx"], options);
+    assert.equal(log().length, 2, "a pass with nothing open writes nothing");
+    done();
+  });
+
+  it("holds as caught only the files a shell command's failure names", () => {
+    const { options, log, done } = project(new Set(["src/b.tsx"]));
+    STAGES["check-files"](gates, ["src/a.tsx", "src/b.tsx"], options);
+    assert.deepEqual(log()[0].files, ["src/b.tsx"]);
+    done();
+  });
+
+  it("writes a stopped commit and a denied edit to a generated file, and leaves that reason as it was", () => {
+    const { options, log, done } = project(new Set(["commit"]));
+    assert.match(STAGES["before-commit"](gates, [], options), /^Design-system gate stopped the commit: design-system\/no-raw-color\.\n`lint` failed:/);
+    assert.match(STAGES["check-generated"](gates, ["out/theme.css"], options), /^out\/theme\.css is generated/);
+    assert.deepEqual(log().map((event) => [event.stage, event.result, event.files]), [["before-commit", "caught", []], ["check-generated", "caught", ["out/theme.css"]]]);
+    done();
+  });
+
+  it("writes nothing when the project turns the log off, in CI, or without a design-system folder", () => {
+    const { root, options, done } = project(new Set(["src/a.tsx"]));
+    STAGES["check-files"]({ ...gates, log: false }, ["src/a.tsx"], options);
+    STAGES["check-files"](gates, ["src/a.tsx"], { ...options, env: { CI: "true" } });
+    assert.equal(existsSync(join(root, LOG_FILE)), false);
+    assert.equal(logPath(gates, { root: join(root, "nowhere"), env: {} }), undefined);
+    assert.deepEqual(gatesProblems({ log: "yes" }), [`log must be true or false: false stops the gates writing ${LOG_FILE}`]);
+    assert.deepEqual(gatesProblems({ log: false }), []);
+    done();
+  });
+
+  it("skips a torn line, and keeps the newer half when the log passes its size", () => {
+    const { root, options, log, done } = project(new Set(["src/a.tsx"]));
+    writeFileSync(join(root, LOG_FILE), '{"stage":"check-files","result":"caught","files":["old.tsx"]}\n{"stage":"che\n{"stage":"check-files","result":"fixed","files":["old.tsx"]}\n');
+    assert.equal(log().length, 2);
+    STAGES["check-files"](gates, ["src/a.tsx"], { ...options, maxBytes: 10 });
+    assert.deepEqual(log().map((event) => event.result), ["fixed", "caught"]);
+    assert.equal(readFileSync(join(root, LOG_FILE), "utf8").endsWith("\n"), true);
+    done();
+  });
+});
+
+describe("summarize", () => {
+  const gates = { lint: { files: ["src/**/*.tsx"], command: "eslint" }, beforeCommit: ["lint"] };
+  const project = (failing) => {
+    const root = mkdtempSync(join(tmpdir(), "gate-summary-"));
+    mkdirSync(join(root, "design-system"));
+    const options = {
+      root,
+      env: {},
+      exists: () => true,
+      runCommand: (command) => ([...failing].some((file) => command.includes(`"${file}"`)) ? { status: 1, output: "1:1 error design-system/no-raw-color" } : { status: 0, output: "" }),
+      runCommands: () => ({ command: "lint", output: "1 error" }),
+    };
+    return { root, options, done: () => rmSync(root, { recursive: true, force: true }) };
+  };
+
+  it("says nothing when the gates caught nothing", () => {
+    const { options, done } = project(new Set());
+    STAGES["check-files"](gates, ["src/a.tsx"], options);
+    assert.equal(summarize(gates, options), undefined);
+    done();
+  });
+
+  it("counts the catches, the fixes and what is still open, once", () => {
+    const failing = new Set(["src/a.tsx", "src/b.tsx"]);
+    const { options, done } = project(failing);
+    STAGES["check-files"](gates, ["src/a.tsx"], options);
+    STAGES["check-files"](gates, ["src/a.tsx"], options);
+    STAGES["check-files"](gates, ["src/b.tsx"], options);
+    failing.delete("src/a.tsx");
+    STAGES["check-files"](gates, ["src/a.tsx"], options);
+    STAGES["before-commit"](gates, [], options);
+    assert.equal(summarize(gates, options), `Design-system gates: caught 3 times in 2 files, 1 fixed; a commit was stopped once. Still open: src/b.tsx (design-system/no-raw-color). Log: ${LOG_FILE}`);
+    assert.equal(summarize(gates, options), undefined, "the same catches are not summarized twice");
+    done();
+  });
+
+  it("checks an open file again, so a fix made outside the gates counts", () => {
+    const failing = new Set(["src/a.tsx"]);
+    const { root, options, done } = project(failing);
+    STAGES["check-files"](gates, ["src/a.tsx"], options);
+    failing.clear();
+    assert.equal(summarize(gates, options), `Design-system gates: caught once in 1 file, 1 fixed. Log: ${LOG_FILE}`);
+    assert.equal(openCatches(readLog(join(root, LOG_FILE))).size, 0);
+    done();
+  });
+
+  it("keeps one session's catches out of another's summary", () => {
+    const { options, done } = project(new Set(["src/a.tsx"]));
+    STAGES["check-files"](gates, ["src/a.tsx"], { ...options, session: "s1" });
+    assert.equal(summarize(gates, { ...options, session: "s2" }), undefined);
+    assert.match(summarize(gates, { ...options, session: "s1" }), /^Design-system gates: caught once in 1 file, 0 fixed\. Still open: src\/a\.tsx/);
+    done();
   });
 });

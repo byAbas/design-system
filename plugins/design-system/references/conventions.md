@@ -27,6 +27,7 @@ DTCG does not prescribe file names or group names: the spec "defines the format 
     audits/                                  the audit reports, named by UTC stamp
     gates.json                               the gates, the token settings, the exemptions and the baseline
     suppressions.json                        the known problems the token checks do not fail on yet, each with its reason
+    gate-log.jsonl                           what the gates caught and what was fixed, one line each; local, in .gitignore
     figma/                                   the tokens as Figma variable files, generated and committed: Figma's import and the baseline
   <framework path>/theme.css                 the generated output, where the framework reads it (app/, src/styles/)
   <component folder>/<Name>.design.md        a component's description, in its own folder; DESIGN.md gives its path
@@ -35,9 +36,18 @@ DTCG does not prescribe file names or group names: the spec "defines the format 
 
 ## The harness
 
-`design-system/` names no agent. The core in `design-system/harness/` makes every decision: which files are generated, which checks a changed file gets, what a commit runs. `gates.mjs` holds them as stages, and `run-gates.mjs` runs a stage from the command line (`before-commit`, `on-source-edit`, `check-files <file…>`, `check-generated <file…>`). The git hook and CI call it, and so can an agent whose hooks run a shell command. `with-node.sh` finds Node when a desktop app started the hook.
+`design-system/` names no agent. The core in `design-system/harness/` makes every decision: which files are generated, which checks a changed file gets, what a commit runs. `gates.mjs` holds them as stages, and `run-gates.mjs` runs a stage from the command line (`before-commit`, `on-source-edit`, `check-files <file…>`, `check-generated <file…>`), and `summary` reports what the stages caught. The git hook and CI call it, and so can an agent whose hooks run a shell command. `with-node.sh` finds Node when a desktop app started the hook.
 
 Each agent's adapters live in that agent's own folder, for Claude Code `.claude/hooks/design-system/`. An adapter only translates: it reads the agent's hook input, calls one stage, and answers in the agent's protocol. A decision an adapter would make belongs in the core or in `design-system/gates.json`. So a new agent needs only its adapters, and `design-system/` does not change.
+
+### What a catch says, and the gate log
+
+A gate that catches something and is not seen has done half its work: the agent is told, and the person is not. So the core makes every catch readable and keeps it.
+
+- **The first line.** A stage's failure starts with one sentence that stands without the tool's output: `Design-system gate caught <files>: <rule ids>.`, or `Design-system gate stopped the commit: <rule ids>.` The rule ids are the `design-system/…` names in the tool's output. The project's own path is taken out of that output, so the lines are short and name no home folder. An adapter gives the agent the whole message and the person the first line, where its agent has a channel for the person.
+- **The log.** Every catch is one JSON line in `design-system/gate-log.jsonl`: `at`, `stage`, `result` (`caught`), `files`, `rules`, `by` (the agent's name, or `command-line` for the git hook and a person) and `session` when the agent names one. When a file the log holds as caught passes its checks, a `fixed` line follows. The log is local to a checkout: it is in `.gitignore`, CI never writes it, and `"log": false` in `design-system/gates.json` turns it off. It is cut to its newer half at 1 MB. A log that cannot be written never fails a gate.
+- **The summary.** `run-gates.mjs summary` says what was caught since the last summary: how many times, in how many files, how many were fixed, which are still open, and how many commits were stopped. It checks each open file again first, so a fix made outside the gates (an editor, `git restore`) counts. An agent's adapter gives the same sentence to the person when the agent ends a turn; with nothing caught, nothing is said.
+- **What the log is for.** A person sees what the agent was stopped from doing; a team counts which rule is caught most, which is where the rules document is unclear.
 
 ## Contexts
 
