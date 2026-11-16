@@ -42,7 +42,7 @@ components: {}
 
 ## Components
 
-<!-- Each component in `components:`: what it is and why it reads the roles it reads. Add a component here and to the front matter before its code. Its `backgroundColor`, `textColor` and `typography` are the pair the contrast check measures in every context; a variant (`button-primary-hover`) states only what changes. -->
+<!-- The app-level descriptions only: what applies to every page, and the primitives many components share (a button, a link). Every other component is one line here with the path to its description, `<Name>.design.md` in its own folder, which says what the component is and why it reads the roles it reads. Keep this document short. Add a component to the front matter, and its line here, before its code. Its `backgroundColor`, `textColor` and `typography` are the pair the contrast check measures in every context; a variant (`button-primary-hover`) states only what changes. -->
 
 ## Do's and Don'ts
 
