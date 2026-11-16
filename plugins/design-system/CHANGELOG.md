@@ -7,6 +7,14 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.15.1
+
+A finding for a file keeps one id from one audit to the next. From two audits of euaijobs at one commit (2026-11-16): the same problem had two ids (`featured-companies.ts#` and `featured-companies.ts#FEATURED_COMPANIES`), and of six files with two matches each run reported a different one, so the comparison showed resolved and new findings where the code had not changed.
+
+- **One id** (`references/report.md`, Grouping): a per-file finding under the ten-file cap is about its whole file, so its id ends in `#` alone, never in a symbol of the file.
+- **Ties** (`references/report.md`, Grouping): files with the same number of matches are taken in the order of their paths, so two audits of the same code choose the same ten.
+- **Not proved yet:** no audit has run with the change. It fixes the ids, not what the auditor counts: two runs that count a file's matches differently can still choose different files.
+
 ## 0.15.0
 
 A component's description lives in the component's own folder, and the rules document gives its path. From euaijobs (2026-11-16): in five weeks its `DESIGN.md` grew from 20 KB to 232 KB, 106 KB of it component descriptions, and one read by an agent returned the first 404 of its 1,634 lines: the contract, with no rule among them.
