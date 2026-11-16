@@ -253,6 +253,21 @@ Each rule block has five fields:
 - **Gate:** review.
 - **Default:** `warning`.
 
+### `docs/component-descriptions`
+
+- **What:**
+  - a component's description is beside its code, in the component's own folder (`<Name>.design.md`), and the rules document lists the component with the path to it;
+  - the rules document itself holds only the app-level descriptions, what applies to every page and the primitives many components share, and stays short;
+  - the description is written once: a comment in the component's code does not repeat it.
+- **Why:** conventions, Component descriptions; principles 1. A rules document that describes every component grows with the code until one read no longer returns it whole, and an agent then works without the rules it did not reach.
+- **Check (core):**
+  - read the Components section of the rules document. Flag a description of one component that is written there, a component listed with no path, and a path that names no file;
+  - compare a component's description with the comments in its code, and flag a description both state;
+  - state the size of the rules document's prose and of its Components section, in lines, and whether one read returned the document whole;
+  - this is one finding, at the document location, with the components as evidence.
+- **Gate:** review.
+- **Default:** `warning`.
+
 ### `docs/token-descriptions`
 
 - **What:** roles and derived tokens carry a `$description` that states their use or rule.

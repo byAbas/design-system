@@ -78,6 +78,12 @@ Present the plan and wait for approval. Use plan mode when the session offers it
 - **Another rules document:** keep it, and bring it to the rules (decisions, The rules document: no values, a machine-readable contract, only existing token ids). Do not add a second document beside it.
 - **Contract keys** start with their component's file name in kebab-case (`${CLAUDE_PLUGIN_ROOT}/references/conventions.md`, The contract). Renaming keys that named visual parts (`button-primary-hover` for `Button.tsx` already fits; `hero-cta` for `CtaBannerSection.tsx` does not) is its own batch, with the rules document's prose.
 
+**Component descriptions.** For `docs/component-descriptions` (`${CLAUDE_PLUGIN_ROOT}/references/conventions.md`, Component descriptions):
+- **Move, do not rewrite.** Each description of one component moves from the rules document to `<Name>.design.md` in the component's folder, in its own words. The Components section keeps one line for it, with the path. The app-level descriptions stay where they are.
+- **One source.** Where a comment in the component's code repeats the description, the file keeps the description, and the comment keeps how the code is built and the file's name.
+- **Its own batch.** It changes no value and no contract key, and in code only comments, so it is never folded into a batch that changes more.
+- **Proof.** After it, the checks report the same problems as before it, and every path the Components section lists names a file.
+
 **Batches that must not change rendering.** A migration, a rename or a move of values should leave every page looking the same. The plan says how that is proven:
 - **Baseline and compare.** Take a baseline with the project's own visual check (its screenshot or visual-regression script) before any change, and compare after it.
 - **Confirm the target.** Before the baseline, confirm the check tests this project: the port it loads answers with this app (its page title or a known element), not another server on the same port.

@@ -29,6 +29,7 @@ DTCG does not prescribe file names or group names: the spec "defines the format 
     suppressions.json                        the known problems the token checks do not fail on yet, each with its reason
     figma/                                   the tokens as Figma variable files, generated and committed: Figma's import and the baseline
   <framework path>/theme.css                 the generated output, where the framework reads it (app/, src/styles/)
+  <component folder>/<Name>.design.md        a component's description, in its own folder; DESIGN.md gives its path
   .claude/hooks/design-system/               the Claude Code adapters; .claude/settings.json points here
 ```
 
@@ -116,6 +117,18 @@ The rules document's `components:` contract names, by token id, the roles each c
 **Coverage.** `scripts/check-rules-contract.mjs` lists the component files (`.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro`, without tests and stories) under the code folders, `tokens.code` in `design-system/gates.json` (`["src", "app", "components", "pages"]` by default; a folder that does not exist is skipped, and `[]` turns coverage off). A file reads roles when it names a colour role in a colour utility (`bg-surface`, `hover:text-on-surface/80`) or in a variable (`var(--color-surface)`, `bg-(--color-surface)`). Each such file without a key is a `tiers/components-read-roles` finding. A helper in `.ts` or `.js` (a `cva` variants file) is its component's, not a component of its own.
 
 The rule comes from ispanviza-web, whose next audit computed coverage mechanically from it and named the 15 files with no key, page files included.
+
+## Component descriptions
+
+A component's description lives in the component's own folder, and the rules document gives its path:
+
+- **One file per component, beside its code:** `<Name>.design.md` in the component's folder (`components/jobs/JobCard/JobCard.design.md` for `JobCard.tsx`). It says what the component is and why it reads the roles it reads.
+- **The rules document references it.** The Components section of `DESIGN.md` lists each component with the path to its description.
+- **The rules document keeps the app-level descriptions.** `DESIGN.md` may hold descriptions itself, but only those at the app level, which have the higher priority. The app level is what applies to every page and the primitives many components share, such as a button or a link. What describes one component is in that component's file.
+- **The rules document stays short.** A description that is not at the app level moves to its component's file, so `DESIGN.md` does not grow long.
+- **The file is the source.** A comment in the component's code says how the code is built and points to the file. It does not repeat the description.
+
+The rule comes from euaijobs (2026-11-16). In five weeks its `DESIGN.md` grew from 20 KB to 232 KB, 106 KB of it component descriptions, and one read by an agent returned the first 404 of its 1,634 lines: the contract, with no rule among them.
 
 ## Exemptions
 

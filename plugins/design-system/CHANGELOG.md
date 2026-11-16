@@ -7,6 +7,16 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.15.0
+
+A component's description lives in the component's own folder, and the rules document gives its path. From euaijobs (2026-11-16): in five weeks its `DESIGN.md` grew from 20 KB to 232 KB, 106 KB of it component descriptions, and one read by an agent returned the first 404 of its 1,634 lines: the contract, with no rule among them.
+
+- **The convention** (`references/conventions.md`, Component descriptions): one `<Name>.design.md` per component, beside its code. `DESIGN.md` lists each component with the path, keeps only the app-level descriptions (what applies to every page, and the primitives many components share) and stays short. The file is the source: a comment in the component's code does not repeat the description.
+- **A new rule, `docs/component-descriptions`** (`references/rubric.md`), a `warning`. The audit flags a description of one component written in the rules document, a component listed with no path, a path that names no file, and a description the code's comments repeat. It states the document's size and whether one read returned it whole. It is one finding, at the document, and its gate is review.
+- **`fix`** (`skills/fix/SKILL.md`) moves the descriptions as a batch of their own: in their own words, with one line and the path left in the Components section, proved by the checks reporting the same problems as before.
+- **`setup`'s template** (`assets/setup/DESIGN.md`): the Components section asks for the app-level descriptions, and one line with a path for every other component.
+- **Not proved yet:** no audit has run with the new rule.
+
 ## 0.14.1
 
 The Terrazzo profile's template, rebuilt and checked against Terrazzo 2.7.1 and Tailwind 4.3.3 on two real token sets: ispanviza-web's (one context, gradients) and cv-screener's (light and dark).
