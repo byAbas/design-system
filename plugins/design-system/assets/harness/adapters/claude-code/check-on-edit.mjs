@@ -8,7 +8,8 @@
 // from check-after-bash.mjs.
 
 import { STAGES, readGates } from "../../../design-system/harness/gates.mjs";
-import { editedPath, hookInput, report } from "./hook-io.mjs";
+import { caller, editedPath, hookInput, report } from "./hook-io.mjs";
 
-const path = editedPath(hookInput());
-report(path === undefined ? undefined : STAGES["check-files"](readGates(), [path]));
+const input = hookInput();
+const path = editedPath(input);
+report(path === undefined ? undefined : STAGES["check-files"](readGates(), [path], caller(input)));

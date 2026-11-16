@@ -68,7 +68,7 @@ The only profile today. It assumes **Tailwind CSS v4**, and builds the Tailwind 
 
 ## The layout it creates
 
-`setup` creates, and the checks default to, one layout: `DESIGN.md` at the root, and everything else under `design-system/`: the DTCG tokens in `tokens/` (foundation, semantic, themes, one resolver), the copied checks in `checks/`, the audit reports in `audits/`, the settings in `gates.json` (with the exemptions and the baseline report), and the known problems the gates do not fail on yet in `suppressions.json`. A project with other paths or group names keeps them and states them in `gates.json`; the audit does not count that against it. See `references/conventions.md`.
+`setup` creates, and the checks default to, one layout: `DESIGN.md` at the root, and everything else under `design-system/`: the DTCG tokens in `tokens/` (foundation, semantic, themes, one resolver), the copied checks in `checks/`, the audit reports in `audits/`, the settings in `gates.json` (with the exemptions and the baseline report), the known problems the gates do not fail on yet in `suppressions.json`, and what the gates caught in `gate-log.jsonl`, which stays out of git. A project with other paths or group names keeps them and states them in `gates.json`; the audit does not count that against it. See `references/conventions.md`.
 
 ## Skills
 
@@ -93,8 +93,11 @@ While a skill of this plugin is in use, a hook keeps its searches inside the pro
 | `check-on-edit` | After an Edit or Write | Lints the file, or runs the token checks after a token or rules edit, and reports a failure to the agent |
 | `check-after-bash` | After a Bash command | The same checks on the files the command changed, from Claude Code's changed-file list (v2.1.269 or later); a generated output changed by hand fails the staleness check |
 | `guard-commit` | Before an agent's `git commit` | Runs the commit gates and refuses the commit when one fails |
+| `summary-on-stop` | When the agent ends a turn | Tells the person what the gates caught in it: how many times, how many files were fixed, which are still open |
 
 A hook that runs after the tool reports; it cannot undo the write. The commit gates, for an agent, a person and CI, are what enforce.
+
+A catch has two readers. The agent gets the whole message, which starts with one sentence: `Design-system gate caught <files>: <rule ids>.` The person gets that sentence, and every catch and fix is one line in `design-system/gate-log.jsonl`, whoever was caught: an agent's hook, the git hook, or a person at the command line. `node design-system/harness/run-gates.mjs summary` reports them (`references/conventions.md`, What a catch says, and the gate log).
 
 The hooks live in `.claude/hooks/design-system/` and only translate: each reads Claude Code's input, runs one stage of the core in `design-system/harness/`, and answers. Every decision is the core's, and nothing under `design-system/` names an agent, so another agent needs only its own adapters (`references/conventions.md`, The harness).
 

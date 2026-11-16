@@ -17,7 +17,7 @@ describe("the harness layout", () => {
     assert.match(read("design-system.yml"), /run: node design-system\/harness\/run-gates\.mjs before-commit/);
     const hooks = JSON.parse(read("settings.hooks.json", claudeCode)).hooks;
     const commands = Object.values(hooks).flat().flatMap((entry) => entry.hooks.map((hook) => hook.command));
-    assert.equal(commands.length, 4);
+    assert.equal(commands.length, 5);
     for (const command of commands) assert.match(command, /^"\$CLAUDE_PROJECT_DIR"\/design-system\/harness\/with-node\.sh \.claude\/hooks\/design-system\/[a-z-]+\.mjs$/);
   });
 
@@ -28,5 +28,14 @@ describe("the harness layout", () => {
       assert.match(text, /STAGES\["[a-z-]+"\]/, file);
       assert.doesNotMatch(text, /matchesAny|runAll|process\.exit|spawnSync/, file);
     }
+    const summary = read("summary-on-stop.mjs", claudeCode);
+    assert.match(summary, /import \{ readGates, summarize \} from "\.\.\/\.\.\/\.\.\/design-system\/harness\/gates\.mjs"/);
+    assert.doesNotMatch(summary, /readLog|openCatches|process\.exit|readFileSync/);
+  });
+
+  it("keeps the gate log out of git: the core names one file, and never writes it in CI", () => {
+    const gates = read("gates.mjs");
+    assert.match(gates, /export const LOG_FILE = "design-system\/gate-log\.jsonl";/);
+    assert.match(gates, /gates\?\.log === false \|\| env\.CI/);
   });
 });

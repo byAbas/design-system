@@ -46,6 +46,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/design-system/harness/with-node.sh .claude/hooks/design-system/summary-on-stop.mjs",
+            "timeout": 120
+          }
+        ]
+      }
     ]
   }
 }
