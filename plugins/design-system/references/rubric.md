@@ -152,7 +152,7 @@ Each rule block has five fields:
 - **What:** the component contract names roles only (`{colors.*}`, `{typography.*}`, `{rounded.*}`), never palette entries or values.
 - **Why:** principles 2.
 - **Check (core):**
-  - read the contract in the rules document's front matter, and flag palette references and literal values;
+  - read the contract in the rules document's front matter, and in the components' contract files (`<Name>.design.yaml`) where the project has them, and flag palette references and literal values;
   - flag each component file that reads colour roles and has no key: a key starts with the file's name in kebab-case (`conventions.md`, The contract), pages included. The rules-contract check computes this; without it, compute it the same way.
 - **Gate:** rules-contract check (core).
 - **Default:** `error`.
@@ -211,7 +211,7 @@ Each rule block has five fields:
 
 ### `format/machine-readable-contract`
 
-- **What:** which roles each component reads is machine-readable (the rules document's front matter), not prose only.
+- **What:** which roles each component reads is machine-readable (the rules document's front matter, or a component's contract file, `<Name>.design.yaml`, beside its code), not prose only.
 - **Why:** decisions, The rules document.
 - **Check (core):** find the contract. Flag a contract that is prose only, or absent while the code has components.
 - **Gate:** rules-contract check.
