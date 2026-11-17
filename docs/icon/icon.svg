@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Agent-Ready Design System</title>
+  <rect width="1024" height="1024" fill="#1C1814"/>
+  <path d="M371.2 275.2 Q294.4 275.2 294.4 352 V441.6 Q294.4 505.6 230.4 512 Q294.4 518.4 294.4 582.4 V672 Q294.4 748.8 371.2 748.8" fill="none" stroke="#ECE6DB" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M652.8 275.2 Q729.6 275.2 729.6 352 V441.6 Q729.6 505.6 793.6 512 Q729.6 518.4 729.6 582.4 V672 Q729.6 748.8 652.8 748.8" fill="none" stroke="#ECE6DB" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="512" cy="512" r="90" fill="#CF9C8B"/>
+</svg>
