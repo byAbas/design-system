@@ -7,6 +7,13 @@ A version bump means:
 - **Minor:** a new rule, gate, profile or skill.
 - **Patch:** a fix or a clarification.
 
+## 0.17.1
+
+The plugin's icon reaches the plugins already installed. From this repository on 2026-11-17: the icon went to `main` without a version change, and a 0.17.0 installed before it stayed without one. After `claude plugin marketplace update`, `claude plugin update` answered "already at the latest version (0.17.0)" and kept the earlier commit; a new install of 0.17.0 had the icon. Claude Code updates a plugin when its version changes, not its commit.
+
+- **The icon** (`.claude-plugin/icon.png`; its source is `docs/icon/icon.svg` at the repository's root): a design token in braces, 1024 px, at the path `claude plugin validate` looks for. `claude plugin validate --strict --profile directory` reports nothing.
+- **Not proved yet:** the update from 0.17.0 to 0.17.1 runs only once this is on `main`.
+
 ## 0.17.0
 
 A component's contract can live beside its code. From euaijobs (2026-11-16): its `DESIGN.md` is 1,636 lines, 1,077 of them the `components:` contract of 291 keys, so the first read by an agent returns contract and no rule; and the contract check read the contract from the rules document's front matter alone.
